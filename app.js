@@ -241,6 +241,9 @@
         const pitch = activeConfig ? activeConfig.ttsPitch : 1.2;
         const vol = activeConfig ? activeConfig.masterVolume / 100 : 0.7;
         const utter = new SpeechSynthesisUtterance(char);
+        utter.lang = 'en-US';
+        const voice = FLASHCARDS.getBestVoice && FLASHCARDS.getBestVoice('en-US');
+        if (voice) utter.voice = voice;
         utter.rate = rate;
         utter.pitch = pitch;
         utter.volume = vol;
@@ -475,6 +478,8 @@
             setTimeout(() => {
                 const utter = new SpeechSynthesisUtterance(text);
                 utter.lang = lang;
+                const voice = FLASHCARDS.getBestVoice && FLASHCARDS.getBestVoice(lang);
+                if (voice) utter.voice = voice;
                 utter.rate = rate;
                 utter.pitch = pitch;
                 utter.volume = vol;

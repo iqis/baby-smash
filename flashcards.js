@@ -583,6 +583,33 @@ const FLASHCARDS = (function () {
     };
 
     // --- TTS Engine ---
+    // --- Voice Selection (prefer Neural/Online voices, fallback to local) ---
+    const voiceCache = {};  // lang -> SpeechSynthesisVoice
+
+    function getBestVoice(lang) {
+        if (voiceCache[lang]) return voiceCache[lang];
+
+        const voices = speechSynthesis.getVoices();
+        const matching = voices.filter(v => v.lang === lang || v.lang.startsWith(lang.split('-')[0]));
+
+        // Priority: Online/Neural > Natural > any matching
+        const neural = matching.find(v =>
+            /online|neural|natural/i.test(v.name)
+        );
+        const selected = neural || matching[0] || null;
+        if (selected) voiceCache[lang] = selected;
+        return selected;
+    }
+
+    // Pre-warm voice list (async on some browsers)
+    if ('speechSynthesis' in window) {
+        speechSynthesis.getVoices();
+        speechSynthesis.addEventListener('voiceschanged', () => {
+            // Clear cache so next speak picks up new voices
+            Object.keys(voiceCache).forEach(k => delete voiceCache[k]);
+        });
+    }
+
     function speakSequence(item) {
         if (!('speechSynthesis' in window)) return;
 
@@ -599,6 +626,8 @@ const FLASHCARDS = (function () {
             setTimeout(() => {
                 const utter = new SpeechSynthesisUtterance(text);
                 utter.lang = lang;
+                const voice = getBestVoice(lang);
+                if (voice) utter.voice = voice;
                 utter.rate = 0.8;
                 utter.pitch = 1.1;
                 utter.volume = 0.8;
@@ -614,6 +643,7 @@ const FLASHCARDS = (function () {
         CATEGORIES,
         categoryKeys,
         speakSequence,
+        getBestVoice,
         getRandomItem: function (categoryKey) {
             const cat = CATEGORIES[categoryKey];
             return cat.items[Math.floor(Math.random() * cat.items.length)];
