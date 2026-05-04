@@ -238,82 +238,194 @@
         osc.stop(now + 0.3);
     }
 
+    // --- Nature Mode Ambient Sound System ---
+    let natureAmbient = null; // { nodes... } or null
+
+    function startNatureAmbient() {
+        if (!audioCtx || natureAmbient) return;
+        if (activeConfig && !activeConfig.soundEnabled) return;
+        const masterScale = activeConfig ? activeConfig.masterVolume / 100 : 1;
+
+        // Layered ambient: wind + distant chimes drone
+        const now = audioCtx.currentTime;
+
+        // Layer 1: Soft wind (filtered noise via many detuned oscillators)
+        const windGain = audioCtx.createGain();
+        windGain.gain.setValueAtTime(0, now);
+        windGain.gain.linearRampToValueAtTime(0.018 * masterScale, now + 3);
+        const windFilter = audioCtx.createBiquadFilter();
+        windFilter.type = 'bandpass';
+        windFilter.frequency.setValueAtTime(400, now);
+        windFilter.Q.setValueAtTime(0.3, now);
+        // Modulate wind filter for movement
+        const windLfo = audioCtx.createOscillator();
+        const windLfoGain = audioCtx.createGain();
+        windLfo.type = 'sine';
+        windLfo.frequency.setValueAtTime(0.1, now);
+        windLfoGain.gain.setValueAtTime(200, now);
+        windLfo.connect(windLfoGain).connect(windFilter.frequency);
+        windLfo.start(now);
+
+        // Use many slightly detuned sawtooths as pseudo-noise
+        const windOscs = [];
+        for (let i = 0; i < 6; i++) {
+            const osc = audioCtx.createOscillator();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(80 + Math.random() * 60, now);
+            osc.detune.setValueAtTime(Math.random() * 100 - 50, now);
+            osc.connect(windFilter);
+            osc.start(now);
+            windOscs.push(osc);
+        }
+        windFilter.connect(windGain).connect(audioCtx.destination);
+
+        // Layer 2: Distant chime drone (pentatonic harmonics, very soft)
+        const chimeGain = audioCtx.createGain();
+        chimeGain.gain.setValueAtTime(0, now);
+        chimeGain.gain.linearRampToValueAtTime(0.012 * masterScale, now + 4);
+        const chimeOscs = [];
+        const chimeNotes = [523.25, 587.33, 659.25, 783.99, 880]; // C5 pentatonic
+        for (let i = 0; i < 3; i++) {
+            const osc = audioCtx.createOscillator();
+            osc.type = 'sine';
+            const note = chimeNotes[Math.floor(Math.random() * chimeNotes.length)];
+            osc.frequency.setValueAtTime(note, now);
+            // Slow tremolo
+            const trem = audioCtx.createOscillator();
+            const tremGain = audioCtx.createGain();
+            trem.type = 'sine';
+            trem.frequency.setValueAtTime(0.3 + Math.random() * 0.4, now);
+            tremGain.gain.setValueAtTime(0.004 * masterScale, now);
+            trem.connect(tremGain);
+            const oscGain = audioCtx.createGain();
+            oscGain.gain.setValueAtTime(0.004 * masterScale, now);
+            tremGain.connect(oscGain.gain);
+            osc.connect(oscGain).connect(chimeGain);
+            osc.start(now);
+            trem.start(now);
+            chimeOscs.push(osc, trem);
+        }
+        chimeGain.connect(audioCtx.destination);
+
+        natureAmbient = { windGain, windFilter, windLfo, windLfoGain, windOscs, chimeGain, chimeOscs };
+    }
+
+    function stopNatureAmbient() {
+        if (!natureAmbient || !audioCtx) return;
+        const now = audioCtx.currentTime;
+        // Fade out
+        natureAmbient.windGain.gain.linearRampToValueAtTime(0.001, now + 1.5);
+        natureAmbient.chimeGain.gain.linearRampToValueAtTime(0.001, now + 2);
+        const nodes = natureAmbient;
+        setTimeout(() => {
+            nodes.windOscs.forEach(o => { try { o.stop(); } catch(e){} });
+            nodes.chimeOscs.forEach(o => { try { o.stop(); } catch(e){} });
+            try { nodes.windLfo.stop(); } catch(e){}
+        }, 2500);
+        natureAmbient = null;
+    }
+
+    // Wind chime hit: metallic resonant tone with harmonics
+    function playWindChime() {
+        if (!audioCtx) return;
+        if (activeConfig && !activeConfig.soundEnabled) return;
+        const masterScale = activeConfig ? activeConfig.masterVolume / 100 : 1;
+        const now = audioCtx.currentTime;
+
+        // Pentatonic scale for pleasant random chimes
+        const chimeScale = [523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.66, 1318.51];
+        const fundamental = chimeScale[Math.floor(Math.random() * chimeScale.length)];
+
+        // Fundamental
+        const osc1 = audioCtx.createOscillator();
+        const gain1 = audioCtx.createGain();
+        osc1.type = 'sine';
+        osc1.frequency.setValueAtTime(fundamental, now);
+        gain1.gain.setValueAtTime(0.07 * masterScale, now);
+        gain1.gain.exponentialRampToValueAtTime(0.001, now + 2.5);
+        osc1.connect(gain1).connect(audioCtx.destination);
+        osc1.start(now);
+        osc1.stop(now + 2.5);
+
+        // 2nd harmonic (slightly inharmonic for metallic character)
+        const osc2 = audioCtx.createOscillator();
+        const gain2 = audioCtx.createGain();
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(fundamental * 2.76, now);
+        gain2.gain.setValueAtTime(0.035 * masterScale, now);
+        gain2.gain.exponentialRampToValueAtTime(0.001, now + 1.8);
+        osc2.connect(gain2).connect(audioCtx.destination);
+        osc2.start(now);
+        osc2.stop(now + 1.8);
+
+        // 3rd harmonic
+        const osc3 = audioCtx.createOscillator();
+        const gain3 = audioCtx.createGain();
+        osc3.type = 'sine';
+        osc3.frequency.setValueAtTime(fundamental * 5.4, now);
+        gain3.gain.setValueAtTime(0.015 * masterScale, now);
+        gain3.gain.exponentialRampToValueAtTime(0.001, now + 1.0);
+        osc3.connect(gain3).connect(audioCtx.destination);
+        osc3.start(now);
+        osc3.stop(now + 1.0);
+    }
+
     function playNatureSound(type) {
         if (!audioCtx) return;
         if (activeConfig && !activeConfig.soundEnabled) return;
         const masterScale = activeConfig ? activeConfig.masterVolume / 100 : 1;
         const now = audioCtx.currentTime;
 
+        // Always play a wind chime hit
+        playWindChime();
+
+        // Plus a type-specific accent
         if (type === 'raindrop') {
-            // Gentle water drop: soft high ping with reverb-like tail
-            const freq = 1200 + Math.random() * 800;
+            // Gentle water drop plink
+            const freq = 1800 + Math.random() * 600;
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
             osc.type = 'sine';
-            osc.frequency.setValueAtTime(freq, now);
-            osc.frequency.exponentialRampToValueAtTime(freq * 0.7, now + 0.15);
-            gain.gain.setValueAtTime(0.06 * masterScale, now);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+            osc.frequency.setValueAtTime(freq, now + 0.05);
+            osc.frequency.exponentialRampToValueAtTime(freq * 0.6, now + 0.2);
+            gain.gain.setValueAtTime(0.04 * masterScale, now + 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
             osc.connect(gain).connect(audioCtx.destination);
-            osc.start(now);
-            osc.stop(now + 0.5);
-
-            // Harmonic shimmer
-            const osc2 = audioCtx.createOscillator();
-            const gain2 = audioCtx.createGain();
-            osc2.type = 'sine';
-            osc2.frequency.setValueAtTime(freq * 2.5, now);
-            gain2.gain.setValueAtTime(0.02 * masterScale, now);
-            gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
-            osc2.connect(gain2).connect(audioCtx.destination);
-            osc2.start(now);
-            osc2.stop(now + 0.3);
+            osc.start(now + 0.05);
+            osc.stop(now + 0.4);
 
         } else if (type === 'leaf') {
-            // Soft whoosh/rustle using filtered noise-like harmonics
-            const baseFreq = 300 + Math.random() * 200;
+            // Soft rustle/whoosh
+            const baseFreq = 250 + Math.random() * 150;
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
             const filter = audioCtx.createBiquadFilter();
             osc.type = 'sawtooth';
             osc.frequency.setValueAtTime(baseFreq, now);
-            osc.frequency.linearRampToValueAtTime(baseFreq * 0.8, now + 0.6);
             filter.type = 'bandpass';
-            filter.frequency.setValueAtTime(baseFreq * 2, now);
-            filter.Q.setValueAtTime(0.5, now);
+            filter.frequency.setValueAtTime(baseFreq * 3, now);
+            filter.frequency.linearRampToValueAtTime(baseFreq * 1.5, now + 0.5);
+            filter.Q.setValueAtTime(0.8, now);
             gain.gain.setValueAtTime(0, now);
-            gain.gain.linearRampToValueAtTime(0.03 * masterScale, now + 0.1);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.7);
+            gain.gain.linearRampToValueAtTime(0.025 * masterScale, now + 0.08);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
             osc.connect(filter).connect(gain).connect(audioCtx.destination);
             osc.start(now);
-            osc.stop(now + 0.7);
+            osc.stop(now + 0.6);
 
         } else if (type === 'cloud') {
-            // Airy pad: very soft low tone with gentle swell
-            const freq = 150 + Math.random() * 100;
+            // Extra soft airy pad on top of chime
+            const freq = 200 + Math.random() * 80;
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
-            osc.type = 'sine';
+            osc.type = 'triangle';
             osc.frequency.setValueAtTime(freq, now);
             gain.gain.setValueAtTime(0, now);
-            gain.gain.linearRampToValueAtTime(0.04 * masterScale, now + 0.3);
-            gain.gain.linearRampToValueAtTime(0.03 * masterScale, now + 0.8);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
+            gain.gain.linearRampToValueAtTime(0.025 * masterScale, now + 0.3);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 1.8);
             osc.connect(gain).connect(audioCtx.destination);
             osc.start(now);
-            osc.stop(now + 1.5);
-
-            // Breathy overtone
-            const osc2 = audioCtx.createOscillator();
-            const gain2 = audioCtx.createGain();
-            osc2.type = 'triangle';
-            osc2.frequency.setValueAtTime(freq * 3, now);
-            gain2.gain.setValueAtTime(0, now);
-            gain2.gain.linearRampToValueAtTime(0.015 * masterScale, now + 0.4);
-            gain2.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
-            osc2.connect(gain2).connect(audioCtx.destination);
-            osc2.start(now);
-            osc2.stop(now + 1.2);
+            osc.stop(now + 1.8);
         }
     }
 
@@ -1134,6 +1246,14 @@
         elements = [];
         xyloIndex = 0;
         scheduleAutoRotate();
+
+        // Manage nature ambient background
+        const modeName = activeModes[currentMode];
+        if (modeName === 'nature') {
+            startNatureAmbient();
+        } else {
+            stopNatureAmbient();
+        }
     }
 
     function nextMode() {
