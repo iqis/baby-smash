@@ -339,7 +339,37 @@
             osc.connect(gain).connect(audioCtx.destination);
             osc.start(now);
             osc.stop(now + 1.8);
+
+        } else if (type === 'snowflake') {
+            // Crystalline sparkle: high tiny ping
+            const freq = 2400 + Math.random() * 800;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, now);
+            osc.frequency.exponentialRampToValueAtTime(freq * 0.8, now + 0.3);
+            gain.gain.setValueAtTime(0.03 * masterScale, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+            osc.connect(gain).connect(audioCtx.destination);
+            osc.start(now);
+            osc.stop(now + 0.5);
+
+        } else if (type === 'butterfly') {
+            // Fluttery: quick series of soft high notes
+            const baseFreq = 900 + Math.random() * 400;
+            for (let i = 0; i < 3; i++) {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(baseFreq * (1 + i * 0.15), now + i * 0.08);
+                gain.gain.setValueAtTime(0.025 * masterScale, now + i * 0.08);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.2);
+                osc.connect(gain).connect(audioCtx.destination);
+                osc.start(now + i * 0.08);
+                osc.stop(now + i * 0.08 + 0.2);
+            }
         }
+        // flower, sun, mushroom: just the wind chime is enough
     }
 
     function playXylophone(freq) {
@@ -466,16 +496,28 @@
     }
 
     function createNatureElement() {
-        const types = ['leaf', 'cloud', 'raindrop'];
+        const types = ['leaf', 'cloud', 'raindrop', 'flower', 'butterfly', 'snowflake', 'sun', 'mushroom'];
         const type = types[Math.floor(Math.random() * types.length)];
-        const size = type === 'cloud' ? 120 + Math.random() * 100 : 40 + Math.random() * 60;
+        const size = type === 'cloud' ? 120 + Math.random() * 100 :
+                     type === 'sun' ? 80 + Math.random() * 60 :
+                     type === 'butterfly' ? 50 + Math.random() * 40 :
+                     type === 'flower' ? 50 + Math.random() * 50 :
+                     type === 'mushroom' ? 45 + Math.random() * 35 :
+                     40 + Math.random() * 60;
         const x = Math.random() * canvas.width;
-        const y = type === 'raindrop' ? -size : Math.random() * canvas.height * 0.6;
+        const y = type === 'raindrop' || type === 'snowflake' ? -size :
+                  type === 'sun' ? 60 + Math.random() * canvas.height * 0.3 :
+                  Math.random() * canvas.height * 0.7;
 
         const natureColors = {
-            leaf: ['#8bc78b', '#a3d4a3', '#6db86d', '#b8e6b8'],
+            leaf: ['#8bc78b', '#a3d4a3', '#6db86d', '#b8e6b8', '#d4a850'],
             cloud: ['#e8e8f0', '#d8dce8', '#f0f0f8'],
             raindrop: ['#a7d8f4', '#8ec8f0', '#b8e4ff'],
+            flower: ['#f4a0b8', '#e87070', '#e8d870', '#b070e8', '#f0a0f0', '#ff9070'],
+            butterfly: ['#e8a0d0', '#a0c8f0', '#f0d080', '#a0e8c0', '#d0a0f0'],
+            snowflake: ['#d8e8ff', '#e0f0ff', '#c8d8f4', '#ffffff'],
+            sun: ['#f4d03f', '#f0c040', '#f8e070'],
+            mushroom: ['#e87070', '#f4a0a0', '#d4a878', '#e8c8a0'],
         };
         const colorSet = natureColors[type];
         const color = colorSet[Math.floor(Math.random() * colorSet.length)];
@@ -486,7 +528,13 @@
             rotation: Math.random() * Math.PI * 2,
             drift: type === 'leaf' ? { dx: (Math.random() - 0.5) * 0.5, dy: 0.3 } :
                    type === 'raindrop' ? { dx: 0, dy: 1.5 } :
+                   type === 'snowflake' ? { dx: (Math.random() - 0.5) * 0.3, dy: 0.4 } :
+                   type === 'butterfly' ? { dx: (Math.random() - 0.5) * 1.2, dy: -0.3 } :
+                   type === 'flower' ? { dx: 0, dy: 0 } :
+                   type === 'mushroom' ? { dx: 0, dy: 0 } :
+                   type === 'sun' ? { dx: 0, dy: 0 } :
                    { dx: 0.2, dy: 0 },
+            wingPhase: Math.random() * Math.PI * 2, // for butterfly
             createdAt: Date.now(),
             opacity: 0,
         });
@@ -813,6 +861,151 @@
         ctx.fill();
     }
 
+    function drawFlower(x, y, size, color) {
+        const petalCount = 5 + Math.floor(Math.random() * 3);
+        const petalR = size * 0.35;
+        // Petals
+        for (let i = 0; i < petalCount; i++) {
+            const angle = (i / petalCount) * Math.PI * 2;
+            const px = x + Math.cos(angle) * petalR;
+            const py = y + Math.sin(angle) * petalR;
+            ctx.beginPath();
+            ctx.ellipse(px, py, petalR * 0.6, petalR * 0.35, angle, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        // Center
+        ctx.fillStyle = '#f8e060';
+        ctx.beginPath();
+        ctx.arc(x, y, size * 0.18, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    function drawButterfly(x, y, size, color, wingPhase) {
+        const wingSpread = 0.5 + Math.abs(Math.sin(wingPhase)) * 0.5;
+        // Left wing
+        ctx.save();
+        ctx.scale(wingSpread, 1);
+        ctx.beginPath();
+        ctx.ellipse(x / wingSpread - size * 0.3, y - size * 0.1, size * 0.35, size * 0.25, -0.3, 0, Math.PI * 2);
+        ctx.fill();
+        // Left lower wing
+        ctx.beginPath();
+        ctx.ellipse(x / wingSpread - size * 0.2, y + size * 0.15, size * 0.2, size * 0.18, -0.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+        // Right wing
+        ctx.save();
+        ctx.scale(wingSpread, 1);
+        ctx.beginPath();
+        ctx.ellipse(x / wingSpread + size * 0.3, y - size * 0.1, size * 0.35, size * 0.25, 0.3, 0, Math.PI * 2);
+        ctx.fill();
+        // Right lower wing
+        ctx.beginPath();
+        ctx.ellipse(x / wingSpread + size * 0.2, y + size * 0.15, size * 0.2, size * 0.18, 0.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+        // Body
+        ctx.fillStyle = '#4a4a4a';
+        ctx.beginPath();
+        ctx.ellipse(x, y, size * 0.05, size * 0.25, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Antennae
+        ctx.strokeStyle = '#4a4a4a';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x, y - size * 0.2);
+        ctx.quadraticCurveTo(x - size * 0.15, y - size * 0.4, x - size * 0.1, y - size * 0.45);
+        ctx.moveTo(x, y - size * 0.2);
+        ctx.quadraticCurveTo(x + size * 0.15, y - size * 0.4, x + size * 0.1, y - size * 0.45);
+        ctx.stroke();
+    }
+
+    function drawSnowflake(x, y, size) {
+        ctx.strokeStyle = ctx.fillStyle;
+        ctx.lineWidth = 2;
+        const arms = 6;
+        const r = size * 0.4;
+        for (let i = 0; i < arms; i++) {
+            const angle = (i / arms) * Math.PI * 2;
+            const ex = x + Math.cos(angle) * r;
+            const ey = y + Math.sin(angle) * r;
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(ex, ey);
+            ctx.stroke();
+            // Small branches
+            const branchLen = r * 0.35;
+            const bx = x + Math.cos(angle) * r * 0.6;
+            const by = y + Math.sin(angle) * r * 0.6;
+            ctx.beginPath();
+            ctx.moveTo(bx, by);
+            ctx.lineTo(bx + Math.cos(angle + 0.6) * branchLen, by + Math.sin(angle + 0.6) * branchLen);
+            ctx.moveTo(bx, by);
+            ctx.lineTo(bx + Math.cos(angle - 0.6) * branchLen, by + Math.sin(angle - 0.6) * branchLen);
+            ctx.stroke();
+        }
+        // Center dot
+        ctx.beginPath();
+        ctx.arc(x, y, size * 0.06, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    function drawSun(x, y, size, color) {
+        // Rays
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 3;
+        const rays = 10;
+        for (let i = 0; i < rays; i++) {
+            const angle = (i / rays) * Math.PI * 2;
+            const inner = size * 0.35;
+            const outer = size * 0.5;
+            ctx.beginPath();
+            ctx.moveTo(x + Math.cos(angle) * inner, y + Math.sin(angle) * inner);
+            ctx.lineTo(x + Math.cos(angle) * outer, y + Math.sin(angle) * outer);
+            ctx.stroke();
+        }
+        // Circle body
+        ctx.beginPath();
+        ctx.arc(x, y, size * 0.3, 0, Math.PI * 2);
+        ctx.fill();
+        // Happy face
+        ctx.fillStyle = '#c89030';
+        ctx.beginPath();
+        ctx.arc(x - size * 0.1, y - size * 0.05, size * 0.04, 0, Math.PI * 2);
+        ctx.arc(x + size * 0.1, y - size * 0.05, size * 0.04, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#c89030';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(x, y + size * 0.05, size * 0.1, 0.1, Math.PI - 0.1);
+        ctx.stroke();
+    }
+
+    function drawMushroom(x, y, size, color) {
+        // Stem
+        ctx.fillStyle = '#f0e8d8';
+        ctx.beginPath();
+        ctx.moveTo(x - size * 0.12, y);
+        ctx.lineTo(x - size * 0.15, y + size * 0.35);
+        ctx.quadraticCurveTo(x, y + size * 0.4, x + size * 0.15, y + size * 0.35);
+        ctx.lineTo(x + size * 0.12, y);
+        ctx.closePath();
+        ctx.fill();
+        // Cap
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.ellipse(x, y - size * 0.05, size * 0.35, size * 0.28, 0, Math.PI, 0);
+        ctx.closePath();
+        ctx.fill();
+        // Spots
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(x - size * 0.12, y - size * 0.18, size * 0.06, 0, Math.PI * 2);
+        ctx.arc(x + size * 0.1, y - size * 0.15, size * 0.05, 0, Math.PI * 2);
+        ctx.arc(x + size * 0.02, y - size * 0.25, size * 0.04, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
     // Letter drawing
     function drawLetter(el) {
         ctx.save();
@@ -1017,6 +1210,11 @@
                     case 'leaf': drawLeaf(0, 0, el.size); break;
                     case 'cloud': drawCloud(0, 0, el.size); break;
                     case 'raindrop': drawRaindrop(0, 0, el.size); break;
+                    case 'flower': drawFlower(0, 0, el.size, el.color); break;
+                    case 'butterfly': drawButterfly(0, 0, el.size, el.color, el.wingPhase); break;
+                    case 'snowflake': drawSnowflake(0, 0, el.size); break;
+                    case 'sun': drawSun(0, 0, el.size, el.color); break;
+                    case 'mushroom': drawMushroom(0, 0, el.size, el.color); break;
                 }
                 ctx.restore();
                 break;
@@ -1124,6 +1322,12 @@
                     el.x += el.drift.dx;
                     el.y += el.drift.dy;
                     if (el.type === 'leaf') el.rotation += 0.01;
+                    if (el.type === 'snowflake') el.rotation += 0.005;
+                    if (el.type === 'butterfly') {
+                        el.wingPhase += 0.08;
+                        el.y += Math.sin(el.wingPhase) * 0.3;
+                    }
+                    if (el.type === 'sun') el.rotation += 0.003;
                 }
                 break;
             case 'letters':
