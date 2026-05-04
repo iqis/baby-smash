@@ -6,17 +6,19 @@
 
     // --- Configuration ---
     const CONFIG = {
-        maxShapes: 8,           // max concurrent shapes to avoid visual overload
-        shapeDuration: 3000,    // how long shapes live (ms)
+        maxElements: 8,         // max concurrent elements to avoid visual overload
+        elementDuration: 3000,  // how long elements live (ms)
         fadeInTime: 400,        // gentle fade in (ms)
         fadeOutTime: 1200,      // slow fade out (ms)
         minSize: 80,
         maxSize: 200,
         driftSpeed: 0.3,       // slow upward drift (px/frame)
         cooldown: 100,         // min ms between keypresses (debounce rapid smashing)
+        autoRotateMin: 3 * 60 * 1000,  // 3 minutes
+        autoRotateMax: 7 * 60 * 1000,  // 7 minutes
     };
 
-    // Soft pastel palette - gentle on infant eyes
+    // Soft pastel palette
     const COLORS = [
         '#f4a7bb', // soft pink
         '#a7d8f4', // soft blue
@@ -28,27 +30,41 @@
         '#e6a7f4', // soft orchid
     ];
 
-    // Pentatonic scale frequencies (C major pentatonic) - always harmonious
+    // Pentatonic scale frequencies (C major pentatonic)
     const PENTATONIC = [
-        261.63, // C4
-        293.66, // D4
-        329.63, // E4
-        392.00, // G4
-        440.00, // A4
-        523.25, // C5
-        587.33, // D5
-        659.25, // E5
+        261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25
     ];
 
-    // Shape types
-    const SHAPES = ['circle', 'rounded-square', 'star', 'heart', 'diamond'];
+    // Full chromatic for music mode (one octave)
+    const XYLOPHONE = [
+        { note: 'C', freq: 523.25, color: '#f4a7bb' },
+        { note: 'D', freq: 587.33, color: '#f4c8a7' },
+        { note: 'E', freq: 659.25, color: '#f4dda7' },
+        { note: 'F', freq: 698.46, color: '#b8e6c8' },
+        { note: 'G', freq: 783.99, color: '#a7f4e6' },
+        { note: 'A', freq: 880.00, color: '#a7d8f4' },
+        { note: 'B', freq: 987.77, color: '#c8b8f4' },
+        { note: 'C', freq: 1046.50, color: '#e6a7f4' },
+    ];
+
+    const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const NUMBERS = '0123456789';
+
+    // Animal shapes drawn as simplified SVG-like paths
+    const ANIMAL_NAMES = ['cat', 'bird', 'fish', 'bunny', 'bear', 'turtle'];
+
+    const MODE_NAMES = ['shapes', 'bubbles', 'nature', 'letters', 'music', 'animals'];
 
     // --- State ---
     let canvas, ctx;
-    let shapes = [];
+    let elements = [];
     let audioCtx = null;
     let lastKeyTime = 0;
     let animationId = null;
+    let currentMode = 0;
+    let autoRotateTimer = null;
+    let xyloIndex = 0;
+    let started = false;
 
     // --- Audio ---
     function initAudio() {
@@ -60,37 +76,30 @@
         }
     }
 
-    function playTone(frequency) {
+    function playBellTone(frequency, volume = 0.15) {
         if (!audioCtx) return;
+        const now = audioCtx.currentTime;
 
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
-        const now = audioCtx.currentTime;
-
-        // Soft sine wave with gentle envelope
         osc.type = 'sine';
         osc.frequency.setValueAtTime(frequency, now);
 
-        // Add a subtle harmonic for warmth
         const osc2 = audioCtx.createOscillator();
         const gain2 = audioCtx.createGain();
         osc2.type = 'sine';
         osc2.frequency.setValueAtTime(frequency * 2, now);
-        gain2.gain.setValueAtTime(0.1, now);
 
-        // Gentle bell-like envelope
         gain.gain.setValueAtTime(0, now);
-        gain.gain.linearRampToValueAtTime(0.15, now + 0.05);
+        gain.gain.linearRampToValueAtTime(volume, now + 0.05);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
 
         gain2.gain.setValueAtTime(0, now);
-        gain2.gain.linearRampToValueAtTime(0.03, now + 0.02);
+        gain2.gain.linearRampToValueAtTime(volume * 0.2, now + 0.02);
         gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
 
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc2.connect(gain2);
-        gain2.connect(audioCtx.destination);
+        osc.connect(gain).connect(audioCtx.destination);
+        osc2.connect(gain2).connect(audioCtx.destination);
 
         osc.start(now);
         osc.stop(now + 1.5);
@@ -98,48 +107,271 @@
         osc2.stop(now + 0.8);
     }
 
-    // --- Shapes ---
-    function createShape() {
-        const now = Date.now();
+    function playPop() {
+        if (!audioCtx) return;
+        const now = audioCtx.currentTime;
+
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(400, now);
+        osc.frequency.exponentialRampToValueAtTime(150, now + 0.15);
+
+        gain.gain.setValueAtTime(0.12, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.3);
+    }
+
+    function playRaindrop() {
+        if (!audioCtx) return;
+        const now = audioCtx.currentTime;
+        const freq = 800 + Math.random() * 1200;
+
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now);
+        osc.frequency.exponentialRampToValueAtTime(freq * 0.5, now + 0.2);
+
+        gain.gain.setValueAtTime(0.08, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.4);
+    }
+
+    function playXylophone(freq) {
+        if (!audioCtx) return;
+        const now = audioCtx.currentTime;
+
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now);
+
+        // Bright xylophone-like attack
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(0.2, now + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 1.0);
+
+        const osc2 = audioCtx.createOscillator();
+        const gain2 = audioCtx.createGain();
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(freq * 3, now);
+        gain2.gain.setValueAtTime(0, now);
+        gain2.gain.linearRampToValueAtTime(0.04, now + 0.005);
+        gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+
+        osc.connect(gain).connect(audioCtx.destination);
+        osc2.connect(gain2).connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 1.0);
+        osc2.start(now);
+        osc2.stop(now + 0.3);
+    }
+
+    function playAnimalSound() {
+        if (!audioCtx) return;
+        const now = audioCtx.currentTime;
+
+        // Gentle warbling tone
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        const lfo = audioCtx.createOscillator();
+        const lfoGain = audioCtx.createGain();
+
+        const baseFreq = 300 + Math.random() * 400;
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(baseFreq, now);
+
+        lfo.type = 'sine';
+        lfo.frequency.setValueAtTime(4 + Math.random() * 4, now);
+        lfoGain.gain.setValueAtTime(30, now);
+
+        lfo.connect(lfoGain).connect(osc.frequency);
+
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(0.1, now + 0.1);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+
+        osc.connect(gain).connect(audioCtx.destination);
+        lfo.start(now);
+        osc.start(now);
+        osc.stop(now + 0.8);
+        lfo.stop(now + 0.8);
+    }
+
+    function speakLetter(char) {
+        if ('speechSynthesis' in window) {
+            const utter = new SpeechSynthesisUtterance(char);
+            utter.rate = 0.8;
+            utter.pitch = 1.2;
+            utter.volume = 0.7;
+            speechSynthesis.speak(utter);
+        }
+        // Also play a gentle tone
+        playBellTone(PENTATONIC[Math.floor(Math.random() * PENTATONIC.length)], 0.08);
+    }
+
+    // --- Element Creation per Mode ---
+
+    function createShapeElement() {
+        const types = ['circle', 'rounded-square', 'star', 'heart', 'diamond'];
+        const type = types[Math.floor(Math.random() * types.length)];
         const color = COLORS[Math.floor(Math.random() * COLORS.length)];
-        const type = SHAPES[Math.floor(Math.random() * SHAPES.length)];
         const size = CONFIG.minSize + Math.random() * (CONFIG.maxSize - CONFIG.minSize);
         const x = size + Math.random() * (canvas.width - size * 2);
         const y = size + Math.random() * (canvas.height - size * 2);
-        const rotation = Math.random() * Math.PI * 2;
-        const note = PENTATONIC[Math.floor(Math.random() * PENTATONIC.length)];
 
-        // Remove oldest shape if at max
-        if (shapes.length >= CONFIG.maxShapes) {
-            shapes.shift();
-        }
-
-        shapes.push({
+        elements.push({
+            mode: 'shapes',
             type,
-            x,
-            y,
-            size,
-            color,
-            rotation,
-            createdAt: now,
+            x, y, size, color,
+            rotation: Math.random() * Math.PI * 2,
+            createdAt: Date.now(),
             opacity: 0,
         });
 
-        playTone(note);
+        playBellTone(PENTATONIC[Math.floor(Math.random() * PENTATONIC.length)]);
     }
 
-    function getOpacity(shape, now) {
-        const age = now - shape.createdAt;
-        if (age < CONFIG.fadeInTime) {
-            return age / CONFIG.fadeInTime;
-        } else if (age > CONFIG.shapeDuration - CONFIG.fadeOutTime) {
-            const remaining = CONFIG.shapeDuration - age;
-            return Math.max(0, remaining / CONFIG.fadeOutTime);
+    function createBubbleElement() {
+        const size = 60 + Math.random() * 140;
+        const x = size + Math.random() * (canvas.width - size * 2);
+        const y = canvas.height * 0.5 + Math.random() * (canvas.height * 0.4);
+        const color = COLORS[Math.floor(Math.random() * COLORS.length)];
+
+        elements.push({
+            mode: 'bubbles',
+            x, y, size, color,
+            wobblePhase: Math.random() * Math.PI * 2,
+            wobbleSpeed: 0.02 + Math.random() * 0.02,
+            createdAt: Date.now(),
+            opacity: 0,
+        });
+
+        playPop();
+    }
+
+    function createNatureElement() {
+        const types = ['leaf', 'cloud', 'raindrop'];
+        const type = types[Math.floor(Math.random() * types.length)];
+        const size = type === 'cloud' ? 120 + Math.random() * 100 : 40 + Math.random() * 60;
+        const x = Math.random() * canvas.width;
+        const y = type === 'raindrop' ? -size : Math.random() * canvas.height * 0.6;
+
+        const natureColors = {
+            leaf: ['#8bc78b', '#a3d4a3', '#6db86d', '#b8e6b8'],
+            cloud: ['#e8e8f0', '#d8dce8', '#f0f0f8'],
+            raindrop: ['#a7d8f4', '#8ec8f0', '#b8e4ff'],
+        };
+        const colorSet = natureColors[type];
+        const color = colorSet[Math.floor(Math.random() * colorSet.length)];
+
+        elements.push({
+            mode: 'nature',
+            type, x, y, size, color,
+            rotation: Math.random() * Math.PI * 2,
+            drift: type === 'leaf' ? { dx: (Math.random() - 0.5) * 0.5, dy: 0.3 } :
+                   type === 'raindrop' ? { dx: 0, dy: 1.5 } :
+                   { dx: 0.2, dy: 0 },
+            createdAt: Date.now(),
+            opacity: 0,
+        });
+
+        playRaindrop();
+    }
+
+    function createLetterElement() {
+        const chars = LETTERS + NUMBERS;
+        const char = chars[Math.floor(Math.random() * chars.length)];
+        const size = 120 + Math.random() * 80;
+        const x = size + Math.random() * (canvas.width - size * 2);
+        const y = size + Math.random() * (canvas.height - size * 2);
+        const color = COLORS[Math.floor(Math.random() * COLORS.length)];
+
+        elements.push({
+            mode: 'letters',
+            char, x, y, size, color,
+            rotation: (Math.random() - 0.5) * 0.3,
+            createdAt: Date.now(),
+            opacity: 0,
+        });
+
+        speakLetter(char);
+    }
+
+    function createMusicElement() {
+        const xylo = XYLOPHONE[xyloIndex % XYLOPHONE.length];
+        xyloIndex++;
+
+        const barWidth = canvas.width / XYLOPHONE.length;
+        const barIndex = XYLOPHONE.indexOf(xylo);
+        const x = barWidth * barIndex + barWidth / 2;
+        const y = canvas.height / 2;
+
+        elements.push({
+            mode: 'music',
+            note: xylo.note,
+            x, y,
+            size: barWidth * 0.8,
+            color: xylo.color,
+            barIndex,
+            createdAt: Date.now(),
+            opacity: 0,
+        });
+
+        playXylophone(xylo.freq);
+    }
+
+    function createAnimalElement() {
+        const animal = ANIMAL_NAMES[Math.floor(Math.random() * ANIMAL_NAMES.length)];
+        const size = 120 + Math.random() * 80;
+        const x = size + Math.random() * (canvas.width - size * 2);
+        const y = size + Math.random() * (canvas.height - size * 2);
+        const color = COLORS[Math.floor(Math.random() * COLORS.length)];
+
+        elements.push({
+            mode: 'animals',
+            animal, x, y, size, color,
+            createdAt: Date.now(),
+            opacity: 0,
+        });
+
+        playAnimalSound();
+    }
+
+    function createElement() {
+        if (elements.length >= CONFIG.maxElements) {
+            elements.shift();
+        }
+
+        switch (MODE_NAMES[currentMode]) {
+            case 'shapes': createShapeElement(); break;
+            case 'bubbles': createBubbleElement(); break;
+            case 'nature': createNatureElement(); break;
+            case 'letters': createLetterElement(); break;
+            case 'music': createMusicElement(); break;
+            case 'animals': createAnimalElement(); break;
+        }
+    }
+
+    // --- Drawing Functions ---
+
+    function getOpacity(el, now) {
+        const age = now - el.createdAt;
+        if (age < CONFIG.fadeInTime) return age / CONFIG.fadeInTime;
+        if (age > CONFIG.elementDuration - CONFIG.fadeOutTime) {
+            return Math.max(0, (CONFIG.elementDuration - age) / CONFIG.fadeOutTime);
         }
         return 1;
     }
 
-    // --- Drawing ---
+    // Shape drawing helpers
     function drawCircle(x, y, size) {
         ctx.beginPath();
         ctx.arc(x, y, size / 2, 0, Math.PI * 2);
@@ -147,34 +379,29 @@
     }
 
     function drawRoundedSquare(x, y, size) {
-        const half = size / 2;
-        const radius = size * 0.2;
+        const h = size / 2, r = size * 0.2;
         ctx.beginPath();
-        ctx.moveTo(x - half + radius, y - half);
-        ctx.lineTo(x + half - radius, y - half);
-        ctx.quadraticCurveTo(x + half, y - half, x + half, y - half + radius);
-        ctx.lineTo(x + half, y + half - radius);
-        ctx.quadraticCurveTo(x + half, y + half, x + half - radius, y + half);
-        ctx.lineTo(x - half + radius, y + half);
-        ctx.quadraticCurveTo(x - half, y + half, x - half, y + half - radius);
-        ctx.lineTo(x - half, y - half + radius);
-        ctx.quadraticCurveTo(x - half, y - half, x - half + radius, y - half);
+        ctx.moveTo(x - h + r, y - h);
+        ctx.lineTo(x + h - r, y - h);
+        ctx.quadraticCurveTo(x + h, y - h, x + h, y - h + r);
+        ctx.lineTo(x + h, y + h - r);
+        ctx.quadraticCurveTo(x + h, y + h, x + h - r, y + h);
+        ctx.lineTo(x - h + r, y + h);
+        ctx.quadraticCurveTo(x - h, y + h, x - h, y + h - r);
+        ctx.lineTo(x - h, y - h + r);
+        ctx.quadraticCurveTo(x - h, y - h, x - h + r, y - h);
         ctx.closePath();
         ctx.fill();
     }
 
     function drawStar(x, y, size) {
-        const spikes = 5;
-        const outerRadius = size / 2;
-        const innerRadius = size / 4;
+        const spikes = 5, outer = size / 2, inner = size / 4;
         ctx.beginPath();
         for (let i = 0; i < spikes * 2; i++) {
-            const radius = i % 2 === 0 ? outerRadius : innerRadius;
-            const angle = (i * Math.PI) / spikes - Math.PI / 2;
-            const px = x + Math.cos(angle) * radius;
-            const py = y + Math.sin(angle) * radius;
-            if (i === 0) ctx.moveTo(px, py);
-            else ctx.lineTo(px, py);
+            const r = i % 2 === 0 ? outer : inner;
+            const a = (i * Math.PI) / spikes - Math.PI / 2;
+            const px = x + Math.cos(a) * r, py = y + Math.sin(a) * r;
+            i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
         }
         ctx.closePath();
         ctx.fill();
@@ -193,41 +420,354 @@
     }
 
     function drawDiamond(x, y, size) {
-        const half = size / 2;
+        const h = size / 2;
         ctx.beginPath();
-        ctx.moveTo(x, y - half);
-        ctx.lineTo(x + half * 0.6, y);
-        ctx.lineTo(x, y + half);
-        ctx.lineTo(x - half * 0.6, y);
+        ctx.moveTo(x, y - h);
+        ctx.lineTo(x + h * 0.6, y);
+        ctx.lineTo(x, y + h);
+        ctx.lineTo(x - h * 0.6, y);
         ctx.closePath();
         ctx.fill();
     }
 
-    function drawShape(shape) {
+    // Bubble drawing
+    function drawBubble(el) {
         ctx.save();
-        ctx.translate(shape.x, shape.y);
-        ctx.rotate(shape.rotation);
-        ctx.globalAlpha = shape.opacity;
-        ctx.fillStyle = shape.color;
+        ctx.globalAlpha = el.opacity * 0.6;
+        ctx.fillStyle = el.color;
+        ctx.beginPath();
+        ctx.arc(el.x, el.y, el.size / 2, 0, Math.PI * 2);
+        ctx.fill();
+        // Highlight
+        ctx.globalAlpha = el.opacity * 0.3;
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(el.x - el.size * 0.15, el.y - el.size * 0.15, el.size * 0.15, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
 
-        switch (shape.type) {
-            case 'circle':
-                drawCircle(0, 0, shape.size);
+    // Nature drawing
+    function drawLeaf(x, y, size) {
+        ctx.beginPath();
+        ctx.moveTo(x, y - size / 2);
+        ctx.quadraticCurveTo(x + size / 2, y, x, y + size / 2);
+        ctx.quadraticCurveTo(x - size / 2, y, x, y - size / 2);
+        ctx.closePath();
+        ctx.fill();
+        // Stem
+        ctx.strokeStyle = '#6a9b6a';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x, y - size / 2);
+        ctx.lineTo(x, y + size / 2);
+        ctx.stroke();
+    }
+
+    function drawCloud(x, y, size) {
+        const r = size / 4;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.arc(x + r, y - r * 0.3, r * 0.8, 0, Math.PI * 2);
+        ctx.arc(x - r, y - r * 0.2, r * 0.7, 0, Math.PI * 2);
+        ctx.arc(x + r * 0.5, y + r * 0.2, r * 0.6, 0, Math.PI * 2);
+        ctx.arc(x - r * 0.6, y + r * 0.3, r * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    function drawRaindrop(x, y, size) {
+        ctx.beginPath();
+        ctx.moveTo(x, y - size / 2);
+        ctx.quadraticCurveTo(x + size / 3, y, x, y + size / 2);
+        ctx.quadraticCurveTo(x - size / 3, y, x, y - size / 2);
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    // Letter drawing
+    function drawLetter(el) {
+        ctx.save();
+        ctx.translate(el.x, el.y);
+        ctx.rotate(el.rotation);
+        ctx.globalAlpha = el.opacity;
+        ctx.fillStyle = el.color;
+        ctx.font = `bold ${el.size}px system-ui, -apple-system, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(el.char, 0, 0);
+        ctx.restore();
+    }
+
+    // Music bar drawing
+    function drawMusicBar(el) {
+        ctx.save();
+        ctx.globalAlpha = el.opacity;
+        const barWidth = el.size;
+        const barHeight = canvas.height * 0.6;
+        const x = el.x - barWidth / 2;
+        const y = canvas.height * 0.2;
+
+        // Bar background
+        ctx.fillStyle = el.color;
+        ctx.beginPath();
+        const r = barWidth * 0.15;
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + barWidth - r, y);
+        ctx.quadraticCurveTo(x + barWidth, y, x + barWidth, y + r);
+        ctx.lineTo(x + barWidth, y + barHeight - r);
+        ctx.quadraticCurveTo(x + barWidth, y + barHeight, x + barWidth - r, y + barHeight);
+        ctx.lineTo(x + r, y + barHeight);
+        ctx.quadraticCurveTo(x, y + barHeight, x, y + barHeight - r);
+        ctx.lineTo(x, y + r);
+        ctx.quadraticCurveTo(x, y, x + r, y);
+        ctx.closePath();
+        ctx.fill();
+
+        // Note label
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `bold ${barWidth * 0.4}px system-ui`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(el.note, el.x, y + barHeight - barWidth * 0.5);
+
+        ctx.restore();
+    }
+
+    // Animal drawing (simple silhouettes)
+    function drawAnimal(el) {
+        ctx.save();
+        ctx.translate(el.x, el.y);
+        ctx.globalAlpha = el.opacity;
+        ctx.fillStyle = el.color;
+        const s = el.size / 2;
+
+        switch (el.animal) {
+            case 'cat':
+                // Body
+                ctx.beginPath();
+                ctx.ellipse(0, 0, s * 0.5, s * 0.4, 0, 0, Math.PI * 2);
+                ctx.fill();
+                // Head
+                ctx.beginPath();
+                ctx.arc(0, -s * 0.5, s * 0.3, 0, Math.PI * 2);
+                ctx.fill();
+                // Ears
+                ctx.beginPath();
+                ctx.moveTo(-s * 0.25, -s * 0.7);
+                ctx.lineTo(-s * 0.1, -s * 0.95);
+                ctx.lineTo(s * 0.05, -s * 0.7);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.moveTo(s * 0.05, -s * 0.7);
+                ctx.lineTo(s * 0.15, -s * 0.95);
+                ctx.lineTo(s * 0.3, -s * 0.7);
+                ctx.fill();
                 break;
-            case 'rounded-square':
-                drawRoundedSquare(0, 0, shape.size);
+            case 'bird':
+                // Body
+                ctx.beginPath();
+                ctx.ellipse(0, 0, s * 0.4, s * 0.3, 0, 0, Math.PI * 2);
+                ctx.fill();
+                // Head
+                ctx.beginPath();
+                ctx.arc(s * 0.3, -s * 0.2, s * 0.2, 0, Math.PI * 2);
+                ctx.fill();
+                // Beak
+                ctx.beginPath();
+                ctx.moveTo(s * 0.5, -s * 0.2);
+                ctx.lineTo(s * 0.7, -s * 0.15);
+                ctx.lineTo(s * 0.5, -s * 0.1);
+                ctx.closePath();
+                ctx.fill();
+                // Wing
+                ctx.beginPath();
+                ctx.ellipse(-s * 0.1, -s * 0.1, s * 0.25, s * 0.15, -0.3, 0, Math.PI * 2);
+                ctx.fill();
                 break;
-            case 'star':
-                drawStar(0, 0, shape.size);
+            case 'fish':
+                // Body
+                ctx.beginPath();
+                ctx.ellipse(0, 0, s * 0.5, s * 0.3, 0, 0, Math.PI * 2);
+                ctx.fill();
+                // Tail
+                ctx.beginPath();
+                ctx.moveTo(-s * 0.45, 0);
+                ctx.lineTo(-s * 0.75, -s * 0.25);
+                ctx.lineTo(-s * 0.75, s * 0.25);
+                ctx.closePath();
+                ctx.fill();
+                // Eye
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(s * 0.2, -s * 0.05, s * 0.08, 0, Math.PI * 2);
+                ctx.fill();
                 break;
-            case 'heart':
-                drawHeart(0, 0, shape.size);
+            case 'bunny':
+                // Body
+                ctx.beginPath();
+                ctx.ellipse(0, s * 0.1, s * 0.35, s * 0.4, 0, 0, Math.PI * 2);
+                ctx.fill();
+                // Head
+                ctx.beginPath();
+                ctx.arc(0, -s * 0.4, s * 0.25, 0, Math.PI * 2);
+                ctx.fill();
+                // Ears
+                ctx.beginPath();
+                ctx.ellipse(-s * 0.12, -s * 0.8, s * 0.08, s * 0.25, -0.1, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.ellipse(s * 0.12, -s * 0.8, s * 0.08, s * 0.25, 0.1, 0, Math.PI * 2);
+                ctx.fill();
                 break;
-            case 'diamond':
-                drawDiamond(0, 0, shape.size);
+            case 'bear':
+                // Body
+                ctx.beginPath();
+                ctx.ellipse(0, s * 0.1, s * 0.4, s * 0.45, 0, 0, Math.PI * 2);
+                ctx.fill();
+                // Head
+                ctx.beginPath();
+                ctx.arc(0, -s * 0.4, s * 0.3, 0, Math.PI * 2);
+                ctx.fill();
+                // Ears
+                ctx.beginPath();
+                ctx.arc(-s * 0.25, -s * 0.6, s * 0.1, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(s * 0.25, -s * 0.6, s * 0.1, 0, Math.PI * 2);
+                ctx.fill();
+                break;
+            case 'turtle':
+                // Shell
+                ctx.beginPath();
+                ctx.ellipse(0, 0, s * 0.45, s * 0.35, 0, 0, Math.PI * 2);
+                ctx.fill();
+                // Head
+                ctx.beginPath();
+                ctx.arc(s * 0.45, 0, s * 0.15, 0, Math.PI * 2);
+                ctx.fill();
+                // Legs
+                ctx.beginPath();
+                ctx.ellipse(-s * 0.2, s * 0.3, s * 0.08, s * 0.12, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.ellipse(s * 0.2, s * 0.3, s * 0.08, s * 0.12, 0, 0, Math.PI * 2);
+                ctx.fill();
+                break;
+        }
+        ctx.restore();
+    }
+
+    // --- Main Draw Dispatcher ---
+    function drawElement(el) {
+        switch (el.mode) {
+            case 'shapes':
+                ctx.save();
+                ctx.translate(el.x, el.y);
+                ctx.rotate(el.rotation);
+                ctx.globalAlpha = el.opacity;
+                ctx.fillStyle = el.color;
+                switch (el.type) {
+                    case 'circle': drawCircle(0, 0, el.size); break;
+                    case 'rounded-square': drawRoundedSquare(0, 0, el.size); break;
+                    case 'star': drawStar(0, 0, el.size); break;
+                    case 'heart': drawHeart(0, 0, el.size); break;
+                    case 'diamond': drawDiamond(0, 0, el.size); break;
+                }
+                ctx.restore();
+                break;
+            case 'bubbles':
+                drawBubble(el);
+                break;
+            case 'nature':
+                ctx.save();
+                ctx.translate(el.x, el.y);
+                ctx.rotate(el.rotation);
+                ctx.globalAlpha = el.opacity;
+                ctx.fillStyle = el.color;
+                switch (el.type) {
+                    case 'leaf': drawLeaf(0, 0, el.size); break;
+                    case 'cloud': drawCloud(0, 0, el.size); break;
+                    case 'raindrop': drawRaindrop(0, 0, el.size); break;
+                }
+                ctx.restore();
+                break;
+            case 'letters':
+                drawLetter(el);
+                break;
+            case 'music':
+                drawMusicBar(el);
+                break;
+            case 'animals':
+                drawAnimal(el);
+                break;
+        }
+    }
+
+    // --- Update ---
+    function updateElement(el, now) {
+        const age = now - el.createdAt;
+        if (age > CONFIG.elementDuration) return false;
+
+        el.opacity = getOpacity(el, now);
+
+        switch (el.mode) {
+            case 'shapes':
+                el.y -= CONFIG.driftSpeed;
+                el.rotation += 0.002;
+                break;
+            case 'bubbles':
+                el.y -= CONFIG.driftSpeed * 1.5;
+                el.wobblePhase += el.wobbleSpeed;
+                el.x += Math.sin(el.wobblePhase) * 0.5;
+                break;
+            case 'nature':
+                if (el.drift) {
+                    el.x += el.drift.dx;
+                    el.y += el.drift.dy;
+                    if (el.type === 'leaf') el.rotation += 0.01;
+                }
+                break;
+            case 'letters':
+                el.y -= CONFIG.driftSpeed * 0.5;
+                break;
+            case 'music':
+                // Bars just fade in and out
+                break;
+            case 'animals':
+                el.y -= CONFIG.driftSpeed * 0.3;
                 break;
         }
 
+        return true;
+    }
+
+    // --- Mode Management ---
+    function switchMode(index) {
+        currentMode = index % MODE_NAMES.length;
+        elements = []; // clear elements on mode switch
+        xyloIndex = 0;
+        scheduleAutoRotate();
+    }
+
+    function nextMode() {
+        switchMode((currentMode + 1) % MODE_NAMES.length);
+    }
+
+    function scheduleAutoRotate() {
+        if (autoRotateTimer) clearTimeout(autoRotateTimer);
+        const delay = CONFIG.autoRotateMin + Math.random() * (CONFIG.autoRotateMax - CONFIG.autoRotateMin);
+        autoRotateTimer = setTimeout(nextMode, delay);
+    }
+
+    // --- Mode indicator (subtle, top-right) ---
+    function drawModeIndicator() {
+        ctx.save();
+        ctx.globalAlpha = 0.25;
+        ctx.fillStyle = '#6b7b8d';
+        ctx.font = '14px system-ui';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'top';
+        ctx.fillText(MODE_NAMES[currentMode], canvas.width - 16, 16);
         ctx.restore();
     }
 
@@ -235,26 +775,50 @@
     function animate() {
         const now = Date.now();
 
-        // Clear with warm off-white background
         ctx.fillStyle = '#faf8f5';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Update and draw shapes
-        shapes = shapes.filter(shape => {
-            const age = now - shape.createdAt;
-            if (age > CONFIG.shapeDuration) return false;
+        // Draw persistent xylophone bar outlines in music mode
+        if (MODE_NAMES[currentMode] === 'music') {
+            drawXylophoneBackground();
+        }
 
-            shape.opacity = getOpacity(shape, now);
-            // Gentle upward drift
-            shape.y -= CONFIG.driftSpeed;
-            // Very slow rotation
-            shape.rotation += 0.002;
-
-            drawShape(shape);
+        elements = elements.filter(el => {
+            if (!updateElement(el, now)) return false;
+            drawElement(el);
             return true;
         });
 
+        drawModeIndicator();
         animationId = requestAnimationFrame(animate);
+    }
+
+    function drawXylophoneBackground() {
+        const barWidth = canvas.width / XYLOPHONE.length;
+        const barHeight = canvas.height * 0.6;
+        const y = canvas.height * 0.2;
+
+        ctx.save();
+        ctx.globalAlpha = 0.1;
+        XYLOPHONE.forEach((xylo, i) => {
+            const x = barWidth * i + barWidth * 0.1;
+            const w = barWidth * 0.8;
+            const r = w * 0.15;
+            ctx.fillStyle = xylo.color;
+            ctx.beginPath();
+            ctx.moveTo(x + r, y);
+            ctx.lineTo(x + w - r, y);
+            ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+            ctx.lineTo(x + w, y + barHeight - r);
+            ctx.quadraticCurveTo(x + w, y + barHeight, x + w - r, y + barHeight);
+            ctx.lineTo(x + r, y + barHeight);
+            ctx.quadraticCurveTo(x, y + barHeight, x, y + barHeight - r);
+            ctx.lineTo(x, y + r);
+            ctx.quadraticCurveTo(x, y, x + r, y);
+            ctx.closePath();
+            ctx.fill();
+        });
+        ctx.restore();
     }
 
     // --- Canvas Setup ---
@@ -265,8 +829,17 @@
 
     // --- Event Handlers ---
     function handleKeyDown(e) {
-        // Allow Escape for parents to exit fullscreen
         if (e.key === 'Escape') return;
+
+        // Admin mode switch: Ctrl+Shift+1 through 6
+        if (e.ctrlKey && e.shiftKey) {
+            const num = parseInt(e.key);
+            if (num >= 1 && num <= 6) {
+                e.preventDefault();
+                switchMode(num - 1);
+                return;
+            }
+        }
 
         e.preventDefault();
         e.stopPropagation();
@@ -276,42 +849,44 @@
         lastKeyTime = now;
 
         initAudio();
-        createShape();
+        createElement();
     }
 
     function handleStart() {
+        if (started) return;
+        started = true;
         const overlay = document.getElementById('start-overlay');
         overlay.style.display = 'none';
 
         initAudio();
+        scheduleAutoRotate();
 
-        // Enter fullscreen
         const el = document.documentElement;
-        if (el.requestFullscreen) {
-            el.requestFullscreen();
-        } else if (el.webkitRequestFullscreen) {
-            el.webkitRequestFullscreen();
-        } else if (el.msRequestFullscreen) {
-            el.msRequestFullscreen();
-        }
+        if (el.requestFullscreen) el.requestFullscreen();
+        else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+        else if (el.msRequestFullscreen) el.msRequestFullscreen();
     }
 
-    // Block all key combos that might navigate away or close the tab
     function blockDangerousKeys(e) {
-        if (e.key === 'Escape') return; // allow parent exit
-        // Block Alt+F4, Ctrl+W, Ctrl+Tab, etc.
+        if (e.key === 'Escape') return;
+        // Allow admin combos
+        if (e.ctrlKey && e.shiftKey) return;
         if (e.altKey || e.ctrlKey || e.metaKey) {
             e.preventDefault();
             e.stopPropagation();
             return;
         }
-        // Block F-keys, Tab
-        if (e.key.startsWith('F') && e.key.length > 1) {
-            e.preventDefault();
-        }
-        if (e.key === 'Tab') {
-            e.preventDefault();
-        }
+        if (e.key.startsWith('F') && e.key.length > 1) e.preventDefault();
+        if (e.key === 'Tab') e.preventDefault();
+    }
+
+    function handleInteraction() {
+        if (!started) return;
+        initAudio();
+        const now = Date.now();
+        if (now - lastKeyTime < CONFIG.cooldown) return;
+        lastKeyTime = now;
+        createElement();
     }
 
     // --- Init ---
@@ -322,37 +897,19 @@
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
 
-        // Start overlay click
         document.getElementById('start-overlay').addEventListener('click', handleStart);
 
-        // Keyboard events
         window.addEventListener('keydown', blockDangerousKeys, true);
         window.addEventListener('keydown', handleKeyDown);
 
-        // Also respond to mouse clicks/touches (in case baby hits the trackpad)
-        window.addEventListener('mousedown', (e) => {
-            if (document.getElementById('start-overlay').style.display !== 'none') return;
-            initAudio();
-            const now = Date.now();
-            if (now - lastKeyTime < CONFIG.cooldown) return;
-            lastKeyTime = now;
-            createShape();
-        });
-
+        window.addEventListener('mousedown', handleInteraction);
         window.addEventListener('touchstart', (e) => {
-            if (document.getElementById('start-overlay').style.display !== 'none') return;
             e.preventDefault();
-            initAudio();
-            const now = Date.now();
-            if (now - lastKeyTime < CONFIG.cooldown) return;
-            lastKeyTime = now;
-            createShape();
+            handleInteraction();
         });
 
-        // Prevent context menu
         window.addEventListener('contextmenu', e => e.preventDefault());
 
-        // Start animation loop
         animate();
     }
 
