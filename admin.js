@@ -88,6 +88,9 @@ const ADMIN = (function () {
     function buildMenu() {
         const currentModeName = typeof getCurrentModeName === 'function' ? getCurrentModeName() : '';
         menuItems = [
+            // -- Quick close at top --
+            { type: 'action', label: '✕ Close Panel  [Q]', action: () => hidePanel() },
+
             // -- Now Playing --
             { type: 'header', label: '🎮 NOW PLAYING' },
             { type: 'action', label: '◀ Previous Mode', action: () => { if (onPrevMode) onPrevMode(); buildMenu(); } },
@@ -141,7 +144,6 @@ const ADMIN = (function () {
             // -- Actions --
             { type: 'header', label: '⚡ ACTIONS' },
             { type: 'action', label: '↺ Reset All to Defaults', action: reset },
-            { type: 'action', label: '✕ Close Panel', action: () => hidePanel() },
         ];
 
         // Ensure focusIndex is on an interactive item
@@ -216,6 +218,11 @@ const ADMIN = (function () {
             case 'Enter':
             case ' ':
                 activateItem(item);
+                break;
+            case 'q':
+            case 'Q':
+            case 'Backspace':
+                hidePanel();
                 break;
         }
         renderPanel();
