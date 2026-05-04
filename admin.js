@@ -217,9 +217,6 @@ const ADMIN = (function () {
             case ' ':
                 activateItem(item);
                 break;
-            case 'Escape':
-                hidePanel();
-                break;
         }
         renderPanel();
     }

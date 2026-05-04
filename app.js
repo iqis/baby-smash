@@ -1012,7 +1012,6 @@
 
     // --- Event Handlers ---
     function handleKeyDown(e) {
-        if (e.key === 'Escape') return;
         // Don't trigger app actions when admin panel is open
         if (ADMIN.isVisible) return;
 
@@ -1066,13 +1065,13 @@
     function blockDangerousKeys(e) {
         // Don't block keys when admin panel is open (it handles its own keys)
         if (ADMIN.isVisible) return;
-        if (e.key === 'Escape') return;
         if (e.ctrlKey && e.shiftKey) return;
         if (e.altKey || e.ctrlKey || e.metaKey) {
             e.preventDefault();
             e.stopPropagation();
             return;
         }
+        if (e.key === 'Escape') { e.preventDefault(); return; }
         if (e.key.startsWith('F') && e.key.length > 1) e.preventDefault();
         if (e.key === 'Tab') e.preventDefault();
     }
