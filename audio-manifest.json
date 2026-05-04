@@ -1,53 +1,257 @@
 {
-  "colors/red": {},
-  "colors/blue": {},
-  "colors/green": {},
-  "colors/yellow": {},
-  "colors/purple": {},
-  "colors/orange": {},
-  "colors/pink": {},
-  "colors/white": {},
-  "animals/cat": {},
-  "animals/dog": {},
-  "animals/bird": {},
-  "animals/fish": {},
-  "animals/rabbit": {},
-  "animals/bear": {},
-  "animals/duck": {},
-  "animals/elephant": {},
-  "fruits/apple": {},
-  "fruits/banana": {},
-  "fruits/orange": {},
-  "fruits/grape": {},
-  "fruits/watermelon": {},
-  "fruits/strawberry": {},
-  "fruits/milk": {},
-  "fruits/bread": {},
-  "vehicles/car": {},
-  "vehicles/bus": {},
-  "vehicles/train": {},
-  "vehicles/airplane": {},
-  "vehicles/boat": {},
-  "vehicles/bicycle": {},
-  "vehicles/rocket": {},
-  "vehicles/helicopter": {},
-  "nature/sun": {},
-  "nature/moon": {},
-  "nature/star": {},
-  "nature/tree": {},
-  "nature/flower": {},
-  "nature/rain": {},
-  "nature/cloud": {},
-  "nature/rainbow": {},
-  "numbers/one": {},
-  "numbers/two": {},
-  "numbers/three": {},
-  "numbers/four": {},
-  "numbers/five": {},
-  "bodyParts/hand": {},
-  "bodyParts/foot": {},
-  "bodyParts/eye": {},
-  "bodyParts/nose": {},
-  "bodyParts/mouth": {},
-  "bodyParts/ear": {}
+  "colors/red": {
+    "en": "audio/en/colors/red.wav",
+    "zh": "audio/zh/colors/red.wav",
+    "es": "audio/es/colors/red.wav"
+  },
+  "colors/blue": {
+    "en": "audio/en/colors/blue.wav",
+    "zh": "audio/zh/colors/blue.wav",
+    "es": "audio/es/colors/blue.wav"
+  },
+  "colors/green": {
+    "en": "audio/en/colors/green.wav",
+    "zh": "audio/zh/colors/green.wav",
+    "es": "audio/es/colors/green.wav"
+  },
+  "colors/yellow": {
+    "en": "audio/en/colors/yellow.wav",
+    "zh": "audio/zh/colors/yellow.wav",
+    "es": "audio/es/colors/yellow.wav"
+  },
+  "colors/purple": {
+    "en": "audio/en/colors/purple.wav",
+    "zh": "audio/zh/colors/purple.wav",
+    "es": "audio/es/colors/purple.wav"
+  },
+  "colors/orange": {
+    "en": "audio/en/colors/orange.wav",
+    "zh": "audio/zh/colors/orange.wav",
+    "es": "audio/es/colors/orange.wav"
+  },
+  "colors/pink": {
+    "en": "audio/en/colors/pink.wav",
+    "zh": "audio/zh/colors/pink.wav",
+    "es": "audio/es/colors/pink.wav"
+  },
+  "colors/white": {
+    "en": "audio/en/colors/white.wav",
+    "zh": "audio/zh/colors/white.wav",
+    "es": "audio/es/colors/white.wav"
+  },
+  "animals/cat": {
+    "en": "audio/en/animals/cat.wav",
+    "zh": "audio/zh/animals/cat.wav",
+    "es": "audio/es/animals/cat.wav"
+  },
+  "animals/dog": {
+    "en": "audio/en/animals/dog.wav",
+    "zh": "audio/zh/animals/dog.wav",
+    "es": "audio/es/animals/dog.wav"
+  },
+  "animals/bird": {
+    "en": "audio/en/animals/bird.wav",
+    "zh": "audio/zh/animals/bird.wav",
+    "es": "audio/es/animals/bird.wav"
+  },
+  "animals/fish": {
+    "en": "audio/en/animals/fish.wav",
+    "zh": "audio/zh/animals/fish.wav",
+    "es": "audio/es/animals/fish.wav"
+  },
+  "animals/rabbit": {
+    "en": "audio/en/animals/rabbit.wav",
+    "zh": "audio/zh/animals/rabbit.wav",
+    "es": "audio/es/animals/rabbit.wav"
+  },
+  "animals/bear": {
+    "en": "audio/en/animals/bear.wav",
+    "zh": "audio/zh/animals/bear.wav",
+    "es": "audio/es/animals/bear.wav"
+  },
+  "animals/duck": {
+    "en": "audio/en/animals/duck.wav",
+    "zh": "audio/zh/animals/duck.wav",
+    "es": "audio/es/animals/duck.wav"
+  },
+  "animals/elephant": {
+    "en": "audio/en/animals/elephant.wav",
+    "zh": "audio/zh/animals/elephant.wav",
+    "es": "audio/es/animals/elephant.wav"
+  },
+  "fruits/apple": {
+    "en": "audio/en/fruits/apple.wav",
+    "zh": "audio/zh/fruits/apple.wav",
+    "es": "audio/es/fruits/apple.wav"
+  },
+  "fruits/banana": {
+    "en": "audio/en/fruits/banana.wav",
+    "zh": "audio/zh/fruits/banana.wav",
+    "es": "audio/es/fruits/banana.wav"
+  },
+  "fruits/orange": {
+    "en": "audio/en/fruits/orange.wav",
+    "zh": "audio/zh/fruits/orange.wav",
+    "es": "audio/es/fruits/orange.wav"
+  },
+  "fruits/grape": {
+    "en": "audio/en/fruits/grape.wav",
+    "zh": "audio/zh/fruits/grape.wav",
+    "es": "audio/es/fruits/grape.wav"
+  },
+  "fruits/watermelon": {
+    "en": "audio/en/fruits/watermelon.wav",
+    "zh": "audio/zh/fruits/watermelon.wav",
+    "es": "audio/es/fruits/watermelon.wav"
+  },
+  "fruits/strawberry": {
+    "en": "audio/en/fruits/strawberry.wav",
+    "zh": "audio/zh/fruits/strawberry.wav",
+    "es": "audio/es/fruits/strawberry.wav"
+  },
+  "fruits/milk": {
+    "en": "audio/en/fruits/milk.wav",
+    "zh": "audio/zh/fruits/milk.wav",
+    "es": "audio/es/fruits/milk.wav"
+  },
+  "fruits/bread": {
+    "en": "audio/en/fruits/bread.wav",
+    "zh": "audio/zh/fruits/bread.wav",
+    "es": "audio/es/fruits/bread.wav"
+  },
+  "vehicles/car": {
+    "en": "audio/en/vehicles/car.wav",
+    "zh": "audio/zh/vehicles/car.wav",
+    "es": "audio/es/vehicles/car.wav"
+  },
+  "vehicles/bus": {
+    "en": "audio/en/vehicles/bus.wav",
+    "zh": "audio/zh/vehicles/bus.wav",
+    "es": "audio/es/vehicles/bus.wav"
+  },
+  "vehicles/train": {
+    "en": "audio/en/vehicles/train.wav",
+    "zh": "audio/zh/vehicles/train.wav",
+    "es": "audio/es/vehicles/train.wav"
+  },
+  "vehicles/airplane": {
+    "en": "audio/en/vehicles/airplane.wav",
+    "zh": "audio/zh/vehicles/airplane.wav",
+    "es": "audio/es/vehicles/airplane.wav"
+  },
+  "vehicles/boat": {
+    "en": "audio/en/vehicles/boat.wav",
+    "zh": "audio/zh/vehicles/boat.wav",
+    "es": "audio/es/vehicles/boat.wav"
+  },
+  "vehicles/bicycle": {
+    "en": "audio/en/vehicles/bicycle.wav",
+    "zh": "audio/zh/vehicles/bicycle.wav",
+    "es": "audio/es/vehicles/bicycle.wav"
+  },
+  "vehicles/rocket": {
+    "en": "audio/en/vehicles/rocket.wav",
+    "zh": "audio/zh/vehicles/rocket.wav",
+    "es": "audio/es/vehicles/rocket.wav"
+  },
+  "vehicles/helicopter": {
+    "en": "audio/en/vehicles/helicopter.wav",
+    "zh": "audio/zh/vehicles/helicopter.wav",
+    "es": "audio/es/vehicles/helicopter.wav"
+  },
+  "nature/sun": {
+    "en": "audio/en/nature/sun.wav",
+    "zh": "audio/zh/nature/sun.wav",
+    "es": "audio/es/nature/sun.wav"
+  },
+  "nature/moon": {
+    "en": "audio/en/nature/moon.wav",
+    "zh": "audio/zh/nature/moon.wav",
+    "es": "audio/es/nature/moon.wav"
+  },
+  "nature/star": {
+    "en": "audio/en/nature/star.wav",
+    "zh": "audio/zh/nature/star.wav",
+    "es": "audio/es/nature/star.wav"
+  },
+  "nature/tree": {
+    "en": "audio/en/nature/tree.wav",
+    "zh": "audio/zh/nature/tree.wav",
+    "es": "audio/es/nature/tree.wav"
+  },
+  "nature/flower": {
+    "en": "audio/en/nature/flower.wav",
+    "zh": "audio/zh/nature/flower.wav",
+    "es": "audio/es/nature/flower.wav"
+  },
+  "nature/rain": {
+    "en": "audio/en/nature/rain.wav",
+    "zh": "audio/zh/nature/rain.wav",
+    "es": "audio/es/nature/rain.wav"
+  },
+  "nature/cloud": {
+    "en": "audio/en/nature/cloud.wav",
+    "zh": "audio/zh/nature/cloud.wav",
+    "es": "audio/es/nature/cloud.wav"
+  },
+  "nature/rainbow": {
+    "en": "audio/en/nature/rainbow.wav",
+    "zh": "audio/zh/nature/rainbow.wav",
+    "es": "audio/es/nature/rainbow.wav"
+  },
+  "numbers/one": {
+    "en": "audio/en/numbers/one.wav",
+    "zh": "audio/zh/numbers/one.wav",
+    "es": "audio/es/numbers/one.wav"
+  },
+  "numbers/two": {
+    "en": "audio/en/numbers/two.wav",
+    "zh": "audio/zh/numbers/two.wav",
+    "es": "audio/es/numbers/two.wav"
+  },
+  "numbers/three": {
+    "en": "audio/en/numbers/three.wav",
+    "zh": "audio/zh/numbers/three.wav",
+    "es": "audio/es/numbers/three.wav"
+  },
+  "numbers/four": {
+    "en": "audio/en/numbers/four.wav",
+    "zh": "audio/zh/numbers/four.wav",
+    "es": "audio/es/numbers/four.wav"
+  },
+  "numbers/five": {
+    "en": "audio/en/numbers/five.wav",
+    "zh": "audio/zh/numbers/five.wav",
+    "es": "audio/es/numbers/five.wav"
+  },
+  "bodyParts/hand": {
+    "en": "audio/en/bodyParts/hand.wav",
+    "zh": "audio/zh/bodyParts/hand.wav",
+    "es": "audio/es/bodyParts/hand.wav"
+  },
+  "bodyParts/foot": {
+    "en": "audio/en/bodyParts/foot.wav",
+    "zh": "audio/zh/bodyParts/foot.wav",
+    "es": "audio/es/bodyParts/foot.wav"
+  },
+  "bodyParts/eye": {
+    "en": "audio/en/bodyParts/eye.wav",
+    "zh": "audio/zh/bodyParts/eye.wav",
+    "es": "audio/es/bodyParts/eye.wav"
+  },
+  "bodyParts/nose": {
+    "en": "audio/en/bodyParts/nose.wav",
+    "zh": "audio/zh/bodyParts/nose.wav",
+    "es": "audio/es/bodyParts/nose.wav"
+  },
+  "bodyParts/mouth": {
+    "en": "audio/en/bodyParts/mouth.wav",
+    "zh": "audio/zh/bodyParts/mouth.wav",
+    "es": "audio/es/bodyParts/mouth.wav"
+  },
+  "bodyParts/ear": {
+    "en": "audio/en/bodyParts/ear.wav",
+    "zh": "audio/zh/bodyParts/ear.wav",
+    "es": "audio/es/bodyParts/ear.wav"
+  }
 }

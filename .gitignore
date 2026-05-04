@@ -2,5 +2,8 @@
 images/
 
 # Generated TTS audio (regenerate with: python generate-audio.py)
-audio/
+# NOTE: audio/ is tracked in git for portability (small WAV files ~3MB total)
 audio_test/
+
+# Piper voice models (~200MB, too large for git)
+piper-voices/

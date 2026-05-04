@@ -1,25 +1,32 @@
 """
-Generate TTS audio files for all flashcard vocabulary items using edge-tts.
-Produces mp3 files in audio/{lang}/{category}/{item}.mp3
+Generate TTS audio files for all flashcard vocabulary items using piper-tts.
+Produces WAV files in audio/{lang}/{category}/{item}.wav
+
+Supported languages (offline neural TTS):
+  - English (en): en_US-amy-low
+  - Chinese (zh): zh_CN-huayan-medium
+  - Spanish (es): es_ES-sharvard-medium
+
+For Japanese (ja) and Hindi (hi), the app falls back to browser TTS
+(Edge neural voices online).
+
+Usage:
+    python generate-audio.py
 """
-import asyncio
 import os
-import ssl
 import json
-import edge_tts
+import wave
+from piper import PiperVoice
 
-# Bypass SSL verification (system cert issue)
-edge_tts.voices._SSL_CTX = ssl.create_default_context()
-edge_tts.voices._SSL_CTX.check_hostname = False
-edge_tts.voices._SSL_CTX.verify_mode = ssl.CERT_NONE
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+VOICES_DIR = os.path.join(SCRIPT_DIR, "piper-voices")
+BASE_DIR = os.path.join(SCRIPT_DIR, "audio")
 
-# Voices for each language (neural, natural-sounding)
-VOICES = {
-    'en': 'en-US-AvaNeural',
-    'zh': 'zh-CN-XiaoxiaoNeural',
-    'ja': 'ja-JP-NanamiNeural',
-    'hi': 'hi-IN-SwaraNeural',
-    'es': 'es-ES-ElviraNeural',
+# Piper voice models (must be downloaded to piper-voices/)
+VOICE_MODELS = {
+    'en': 'en_US-amy-low.onnx',
+    'zh': 'zh_CN-huayan-medium.onnx',
+    'es': 'es_ES-sharvard-medium.onnx',
 }
 
 # Vocabulary (mirrors flashcards.js)
@@ -91,14 +98,34 @@ VOCAB = {
     ],
 }
 
-BASE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "audio")
 
-async def generate_one(text, voice, output_path):
+def load_voices():
+    """Load all available piper voice models."""
+    voices = {}
+    for lang, model_file in VOICE_MODELS.items():
+        model_path = os.path.join(VOICES_DIR, model_file)
+        if os.path.exists(model_path):
+            print(f"Loading {lang} voice: {model_file}")
+            voices[lang] = PiperVoice.load(model_path)
+        else:
+            print(f"WARNING: {model_file} not found, skipping {lang}")
+    return voices
+
+
+def generate_one(voice, text, output_path):
     """Generate a single TTS audio file."""
-    communicate = edge_tts.Communicate(text, voice, rate="-10%")
-    await communicate.save(output_path)
+    wav_file = wave.open(output_path, 'wb')
+    voice.synthesize_wav(text, wav_file)
+    wav_file.close()
 
-async def main():
+
+def main():
+    voices = load_voices()
+    if not voices:
+        print("ERROR: No voice models found in piper-voices/")
+        print("Run download commands from README to get voice models.")
+        return
+
     manifest = {}
     total = 0
     errors = 0
@@ -109,25 +136,26 @@ async def main():
             manifest_key = f"{category}/{key_name}"
             manifest[manifest_key] = {}
 
-            for lang, voice in VOICES.items():
+            for lang, voice in voices.items():
                 text = item.get(lang, "")
                 if not text:
                     continue
 
                 out_dir = os.path.join(BASE_DIR, lang, category)
                 os.makedirs(out_dir, exist_ok=True)
-                out_file = os.path.join(out_dir, f"{key_name}.mp3")
-                rel_path = f"audio/{lang}/{category}/{key_name}.mp3"
+                out_file = os.path.join(out_dir, f"{key_name}.wav")
+                rel_path = f"audio/{lang}/{category}/{key_name}.wav"
 
-                if os.path.exists(out_file):
+                if os.path.exists(out_file) and os.path.getsize(out_file) > 100:
                     manifest[manifest_key][lang] = rel_path
                     continue
 
                 try:
-                    await generate_one(text, voice, out_file)
+                    generate_one(voice, text, out_file)
                     manifest[manifest_key][lang] = rel_path
                     total += 1
-                    print(f"  [{lang}] {text} -> {rel_path}")
+                    size = os.path.getsize(out_file)
+                    print(f"  [{lang}] {text} -> {rel_path} ({size}B)")
                 except Exception as e:
                     errors += 1
                     print(f"  [{lang}] ERROR: {text} - {e}")
@@ -135,12 +163,15 @@ async def main():
             print(f"[{manifest_key}] done")
 
     # Write audio manifest
-    manifest_path = os.path.join(os.path.dirname(BASE_DIR), "audio-manifest.json")
+    manifest_path = os.path.join(SCRIPT_DIR, "audio-manifest.json")
     with open(manifest_path, "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2, ensure_ascii=False)
 
     print(f"\nDone! Generated {total} audio files ({errors} errors)")
     print(f"Manifest: audio-manifest.json")
+    print(f"Languages with pre-generated audio: {list(voices.keys())}")
+    print(f"Languages using browser TTS fallback: ja, hi")
+
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

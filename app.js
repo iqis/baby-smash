@@ -102,6 +102,48 @@
             .catch(() => { imageManifest = null; });
     }
 
+    // --- Audio Manifest & Cache ---
+    let audioManifest = null;
+    const audioCache = {}; // path -> HTMLAudioElement
+
+    function loadAudioManifest() {
+        fetch('audio-manifest.json')
+            .then(r => r.json())
+            .then(data => {
+                audioManifest = data;
+                // Preload English audio for quick response
+                Object.values(data).forEach(langs => {
+                    if (langs.en) preloadAudio(langs.en);
+                });
+            })
+            .catch(() => { audioManifest = null; });
+    }
+
+    function preloadAudio(path) {
+        if (audioCache[path]) return audioCache[path];
+        const audio = new Audio();
+        audio.preload = 'auto';
+        audio.src = path;
+        audioCache[path] = audio;
+        return audio;
+    }
+
+    function getFlashcardAudio(categoryKey, itemEn, lang) {
+        if (!audioManifest) return null;
+        const key = categoryKey + '/' + itemEn.toLowerCase();
+        const entry = audioManifest[key];
+        if (!entry || !entry[lang]) return null;
+        return preloadAudio(entry[lang]);
+    }
+
+    function playPregenAudio(audioEl, volume) {
+        if (!audioEl || !audioEl.src) return false;
+        const clone = audioEl.cloneNode();
+        clone.volume = volume;
+        clone.play().catch(() => {});
+        return true;
+    }
+
     function preloadImage(path) {
         if (imageCache[path]) return imageCache[path];
         const img = new Image();
@@ -483,9 +525,6 @@
     }
 
     function speakFlashcard(item) {
-        if (!('speechSynthesis' in window)) return;
-        speechSynthesis.cancel(); // Clear stuck queue
-
         const rate = activeConfig ? activeConfig.ttsRate : 0.8;
         const pitch = activeConfig ? activeConfig.ttsPitch : 1.1;
         const vol = activeConfig ? activeConfig.masterVolume / 100 : 0.8;
@@ -501,20 +540,36 @@
             enabledLangs.push({ code: 'ja-JP', key: 'ja' }, { code: 'hi-IN', key: 'hi' }, { code: 'es-ES', key: 'es' });
         }
 
+        // Build the TTS sequence: English, Chinese, + one rotating third language
         const sequence = [
-            { text: item.en, lang: 'en-US', delay: 0 },
-            { text: item.zh, lang: 'zh-CN', delay: delay },
+            { text: item.en, lang: 'en-US', langKey: 'en', delay: 0 },
+            { text: item.zh, lang: 'zh-CN', langKey: 'zh', delay: delay },
         ];
 
-        // Pick one third language (rotate)
         if (enabledLangs.length > 0) {
             const third = enabledLangs[thirdLangRotation % enabledLangs.length];
             thirdLangRotation++;
-            sequence.push({ text: item[third.key], lang: third.code, delay: delay * 2 });
+            sequence.push({ text: item[third.key], lang: third.code, langKey: third.key, delay: delay * 2 });
         }
 
-        sequence.forEach(({ text, lang, delay: d }) => {
+        // Find the current flashcard's category key for audio lookup
+        const currentEl = elements.find(el => el.mode === 'flashcard' && el.item === item);
+        const catKey = currentEl ? currentEl.categoryKey : null;
+
+        // Cancel any ongoing browser TTS
+        if ('speechSynthesis' in window) speechSynthesis.cancel();
+
+        sequence.forEach(({ text, lang, langKey, delay: d }) => {
             setTimeout(() => {
+                // Try pre-generated audio first
+                if (catKey) {
+                    const audio = getFlashcardAudio(catKey, item.en, langKey);
+                    if (audio && audio.src && playPregenAudio(audio, vol)) {
+                        return; // Pre-generated audio playing
+                    }
+                }
+                // Fallback to browser TTS
+                if (!('speechSynthesis' in window)) return;
                 const utter = new SpeechSynthesisUtterance(text);
                 utter.lang = lang;
                 const voice = FLASHCARDS.getBestVoice && FLASHCARDS.getBestVoice(lang);
@@ -1192,6 +1247,9 @@
 
         // Load image manifest for photo flashcards
         loadImageManifest();
+
+        // Load audio manifest for pre-generated TTS
+        loadAudioManifest();
 
         // Load admin config
         activeConfig = ADMIN.load();
