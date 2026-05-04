@@ -238,25 +238,83 @@
         osc.stop(now + 0.3);
     }
 
-    function playRaindrop() {
+    function playNatureSound(type) {
         if (!audioCtx) return;
         if (activeConfig && !activeConfig.soundEnabled) return;
         const masterScale = activeConfig ? activeConfig.masterVolume / 100 : 1;
         const now = audioCtx.currentTime;
-        const freq = 800 + Math.random() * 1200;
 
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, now);
-        osc.frequency.exponentialRampToValueAtTime(freq * 0.5, now + 0.2);
+        if (type === 'raindrop') {
+            // Gentle water drop: soft high ping with reverb-like tail
+            const freq = 1200 + Math.random() * 800;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, now);
+            osc.frequency.exponentialRampToValueAtTime(freq * 0.7, now + 0.15);
+            gain.gain.setValueAtTime(0.06 * masterScale, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+            osc.connect(gain).connect(audioCtx.destination);
+            osc.start(now);
+            osc.stop(now + 0.5);
 
-        gain.gain.setValueAtTime(0.08 * masterScale, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+            // Harmonic shimmer
+            const osc2 = audioCtx.createOscillator();
+            const gain2 = audioCtx.createGain();
+            osc2.type = 'sine';
+            osc2.frequency.setValueAtTime(freq * 2.5, now);
+            gain2.gain.setValueAtTime(0.02 * masterScale, now);
+            gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+            osc2.connect(gain2).connect(audioCtx.destination);
+            osc2.start(now);
+            osc2.stop(now + 0.3);
 
-        osc.connect(gain).connect(audioCtx.destination);
-        osc.start(now);
-        osc.stop(now + 0.4);
+        } else if (type === 'leaf') {
+            // Soft whoosh/rustle using filtered noise-like harmonics
+            const baseFreq = 300 + Math.random() * 200;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            const filter = audioCtx.createBiquadFilter();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(baseFreq, now);
+            osc.frequency.linearRampToValueAtTime(baseFreq * 0.8, now + 0.6);
+            filter.type = 'bandpass';
+            filter.frequency.setValueAtTime(baseFreq * 2, now);
+            filter.Q.setValueAtTime(0.5, now);
+            gain.gain.setValueAtTime(0, now);
+            gain.gain.linearRampToValueAtTime(0.03 * masterScale, now + 0.1);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.7);
+            osc.connect(filter).connect(gain).connect(audioCtx.destination);
+            osc.start(now);
+            osc.stop(now + 0.7);
+
+        } else if (type === 'cloud') {
+            // Airy pad: very soft low tone with gentle swell
+            const freq = 150 + Math.random() * 100;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, now);
+            gain.gain.setValueAtTime(0, now);
+            gain.gain.linearRampToValueAtTime(0.04 * masterScale, now + 0.3);
+            gain.gain.linearRampToValueAtTime(0.03 * masterScale, now + 0.8);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
+            osc.connect(gain).connect(audioCtx.destination);
+            osc.start(now);
+            osc.stop(now + 1.5);
+
+            // Breathy overtone
+            const osc2 = audioCtx.createOscillator();
+            const gain2 = audioCtx.createGain();
+            osc2.type = 'triangle';
+            osc2.frequency.setValueAtTime(freq * 3, now);
+            gain2.gain.setValueAtTime(0, now);
+            gain2.gain.linearRampToValueAtTime(0.015 * masterScale, now + 0.4);
+            gain2.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+            osc2.connect(gain2).connect(audioCtx.destination);
+            osc2.start(now);
+            osc2.stop(now + 1.2);
+        }
     }
 
     function playXylophone(freq) {
@@ -408,7 +466,7 @@
             opacity: 0,
         });
 
-        playRaindrop();
+        playNatureSound(type);
     }
 
     function createLetterElement() {
