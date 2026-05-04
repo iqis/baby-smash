@@ -238,93 +238,6 @@
         osc.stop(now + 0.3);
     }
 
-    // --- Nature Mode Ambient Sound System ---
-    let natureAmbient = null; // { nodes... } or null
-
-    function startNatureAmbient() {
-        if (!audioCtx || natureAmbient) return;
-        if (activeConfig && !activeConfig.soundEnabled) return;
-        const masterScale = activeConfig ? activeConfig.masterVolume / 100 : 1;
-
-        // Layered ambient: wind + distant chimes drone
-        const now = audioCtx.currentTime;
-
-        // Layer 1: Soft wind (filtered noise via many detuned oscillators)
-        const windGain = audioCtx.createGain();
-        windGain.gain.setValueAtTime(0, now);
-        windGain.gain.linearRampToValueAtTime(0.018 * masterScale, now + 3);
-        const windFilter = audioCtx.createBiquadFilter();
-        windFilter.type = 'bandpass';
-        windFilter.frequency.setValueAtTime(400, now);
-        windFilter.Q.setValueAtTime(0.3, now);
-        // Modulate wind filter for movement
-        const windLfo = audioCtx.createOscillator();
-        const windLfoGain = audioCtx.createGain();
-        windLfo.type = 'sine';
-        windLfo.frequency.setValueAtTime(0.1, now);
-        windLfoGain.gain.setValueAtTime(200, now);
-        windLfo.connect(windLfoGain).connect(windFilter.frequency);
-        windLfo.start(now);
-
-        // Use many slightly detuned sawtooths as pseudo-noise
-        const windOscs = [];
-        for (let i = 0; i < 6; i++) {
-            const osc = audioCtx.createOscillator();
-            osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(80 + Math.random() * 60, now);
-            osc.detune.setValueAtTime(Math.random() * 100 - 50, now);
-            osc.connect(windFilter);
-            osc.start(now);
-            windOscs.push(osc);
-        }
-        windFilter.connect(windGain).connect(audioCtx.destination);
-
-        // Layer 2: Distant chime drone (pentatonic harmonics, very soft)
-        const chimeGain = audioCtx.createGain();
-        chimeGain.gain.setValueAtTime(0, now);
-        chimeGain.gain.linearRampToValueAtTime(0.012 * masterScale, now + 4);
-        const chimeOscs = [];
-        const chimeNotes = [523.25, 587.33, 659.25, 783.99, 880]; // C5 pentatonic
-        for (let i = 0; i < 3; i++) {
-            const osc = audioCtx.createOscillator();
-            osc.type = 'sine';
-            const note = chimeNotes[Math.floor(Math.random() * chimeNotes.length)];
-            osc.frequency.setValueAtTime(note, now);
-            // Slow tremolo
-            const trem = audioCtx.createOscillator();
-            const tremGain = audioCtx.createGain();
-            trem.type = 'sine';
-            trem.frequency.setValueAtTime(0.3 + Math.random() * 0.4, now);
-            tremGain.gain.setValueAtTime(0.004 * masterScale, now);
-            trem.connect(tremGain);
-            const oscGain = audioCtx.createGain();
-            oscGain.gain.setValueAtTime(0.004 * masterScale, now);
-            tremGain.connect(oscGain.gain);
-            osc.connect(oscGain).connect(chimeGain);
-            osc.start(now);
-            trem.start(now);
-            chimeOscs.push(osc, trem);
-        }
-        chimeGain.connect(audioCtx.destination);
-
-        natureAmbient = { windGain, windFilter, windLfo, windLfoGain, windOscs, chimeGain, chimeOscs };
-    }
-
-    function stopNatureAmbient() {
-        if (!natureAmbient || !audioCtx) return;
-        const now = audioCtx.currentTime;
-        // Fade out
-        natureAmbient.windGain.gain.linearRampToValueAtTime(0.001, now + 1.5);
-        natureAmbient.chimeGain.gain.linearRampToValueAtTime(0.001, now + 2);
-        const nodes = natureAmbient;
-        setTimeout(() => {
-            nodes.windOscs.forEach(o => { try { o.stop(); } catch(e){} });
-            nodes.chimeOscs.forEach(o => { try { o.stop(); } catch(e){} });
-            try { nodes.windLfo.stop(); } catch(e){}
-        }, 2500);
-        natureAmbient = null;
-    }
-
     // Wind chime hit: metallic resonant tone with harmonics
     function playWindChime() {
         if (!audioCtx) return;
@@ -1246,14 +1159,6 @@
         elements = [];
         xyloIndex = 0;
         scheduleAutoRotate();
-
-        // Manage nature ambient background
-        const modeName = activeModes[currentMode];
-        if (modeName === 'nature') {
-            startNatureAmbient();
-        } else {
-            stopNatureAmbient();
-        }
     }
 
     function nextMode() {
