@@ -1,0 +1,308 @@
+{
+  "colors/red": [
+    "images/colors/red/000001.jpg",
+    "images/colors/red/000002.jpg",
+    "images/colors/red/000003.jpg",
+    "images/colors/red/000004.jpg"
+  ],
+  "colors/blue": [
+    "images/colors/blue/000001.jpg",
+    "images/colors/blue/000002.jpg",
+    "images/colors/blue/000003.jpg",
+    "images/colors/blue/000004.jpg"
+  ],
+  "colors/green": [
+    "images/colors/green/000001.jpg",
+    "images/colors/green/000002.jpg",
+    "images/colors/green/000003.jpg",
+    "images/colors/green/000004.jpg"
+  ],
+  "colors/yellow": [
+    "images/colors/yellow/000001.jpg",
+    "images/colors/yellow/000002.jpg",
+    "images/colors/yellow/000003.jpg",
+    "images/colors/yellow/000004.jpg"
+  ],
+  "colors/purple": [
+    "images/colors/purple/000001.jpg",
+    "images/colors/purple/000002.jpg",
+    "images/colors/purple/000003.jpg",
+    "images/colors/purple/000004.jpg"
+  ],
+  "colors/orange": [
+    "images/colors/orange/000001.jpg",
+    "images/colors/orange/000002.jpg",
+    "images/colors/orange/000003.jpg",
+    "images/colors/orange/000004.jpg"
+  ],
+  "colors/pink": [
+    "images/colors/pink/000001.jpg",
+    "images/colors/pink/000002.jpg",
+    "images/colors/pink/000003.jpg",
+    "images/colors/pink/000004.jpg"
+  ],
+  "colors/white": [
+    "images/colors/white/000001.jpg",
+    "images/colors/white/000002.jpg",
+    "images/colors/white/000003.jpg",
+    "images/colors/white/000004.jpg"
+  ],
+  "animals/cat": [
+    "images/animals/cat/000001.jpg",
+    "images/animals/cat/000002.jpg",
+    "images/animals/cat/000003.jpg",
+    "images/animals/cat/000004.jpg"
+  ],
+  "animals/dog": [
+    "images/animals/dog/000001.jpeg",
+    "images/animals/dog/000002.jpg",
+    "images/animals/dog/000003.jpg",
+    "images/animals/dog/000004.jpg"
+  ],
+  "animals/bird": [
+    "images/animals/bird/000001.jpg",
+    "images/animals/bird/000002.jpg",
+    "images/animals/bird/000003.jpg",
+    "images/animals/bird/000004.jpg"
+  ],
+  "animals/fish": [
+    "images/animals/fish/000001.jpg",
+    "images/animals/fish/000002.jpg",
+    "images/animals/fish/000003.jpg",
+    "images/animals/fish/000004.jpg"
+  ],
+  "animals/rabbit": [
+    "images/animals/rabbit/000001.jpg",
+    "images/animals/rabbit/000002.jpg",
+    "images/animals/rabbit/000003.jpg",
+    "images/animals/rabbit/000004.jpg"
+  ],
+  "animals/bear": [
+    "images/animals/bear/000001.jpg",
+    "images/animals/bear/000002.jpg",
+    "images/animals/bear/000003.jpg",
+    "images/animals/bear/000004.jpg"
+  ],
+  "animals/duck": [
+    "images/animals/duck/000001.jpg",
+    "images/animals/duck/000002.jpg",
+    "images/animals/duck/000003.jpg",
+    "images/animals/duck/000004.jpg"
+  ],
+  "animals/elephant": [
+    "images/animals/elephant/000001.jpg",
+    "images/animals/elephant/000002.jpg",
+    "images/animals/elephant/000003.jpg",
+    "images/animals/elephant/000004.jpeg"
+  ],
+  "fruits/apple": [
+    "images/fruits/apple/000001.jpg",
+    "images/fruits/apple/000002.jpeg",
+    "images/fruits/apple/000003.jpg",
+    "images/fruits/apple/000004.jpg"
+  ],
+  "fruits/banana": [
+    "images/fruits/banana/000001.jpg",
+    "images/fruits/banana/000002.jpg",
+    "images/fruits/banana/000003.jpg",
+    "images/fruits/banana/000004.jpg"
+  ],
+  "fruits/orange": [
+    "images/fruits/orange/000001.jpg",
+    "images/fruits/orange/000002.jpg",
+    "images/fruits/orange/000003.jpg",
+    "images/fruits/orange/000004.jpg"
+  ],
+  "fruits/grape": [
+    "images/fruits/grape/000001.jpg",
+    "images/fruits/grape/000002.jpg",
+    "images/fruits/grape/000003.jpg",
+    "images/fruits/grape/000004.jpg"
+  ],
+  "fruits/watermelon": [
+    "images/fruits/watermelon/000001.jpg",
+    "images/fruits/watermelon/000002.jpg",
+    "images/fruits/watermelon/000003.jpg",
+    "images/fruits/watermelon/000004.jpg"
+  ],
+  "fruits/strawberry": [
+    "images/fruits/strawberry/000001.jpeg",
+    "images/fruits/strawberry/000002.jpg",
+    "images/fruits/strawberry/000003.jpg",
+    "images/fruits/strawberry/000004.jpg"
+  ],
+  "fruits/milk": [
+    "images/fruits/milk/000001.jpg",
+    "images/fruits/milk/000002.jpg",
+    "images/fruits/milk/000003.jpg",
+    "images/fruits/milk/000004.jpg"
+  ],
+  "fruits/bread": [
+    "images/fruits/bread/000001.jpg",
+    "images/fruits/bread/000002.jpg",
+    "images/fruits/bread/000003.jpg",
+    "images/fruits/bread/000004.jpg"
+  ],
+  "vehicles/car": [
+    "images/vehicles/car/000001.jpg",
+    "images/vehicles/car/000002.jpg",
+    "images/vehicles/car/000003.jpg",
+    "images/vehicles/car/000004.jpg"
+  ],
+  "vehicles/bus": [
+    "images/vehicles/bus/000001.jpg",
+    "images/vehicles/bus/000002.jpg",
+    "images/vehicles/bus/000003.jpg",
+    "images/vehicles/bus/000004.jpg"
+  ],
+  "vehicles/train": [
+    "images/vehicles/train/000001.jpg",
+    "images/vehicles/train/000002.jpg",
+    "images/vehicles/train/000003.jpg",
+    "images/vehicles/train/000004.jpg"
+  ],
+  "vehicles/airplane": [
+    "images/vehicles/airplane/000001.jpg",
+    "images/vehicles/airplane/000002.jpg",
+    "images/vehicles/airplane/000003.jpg",
+    "images/vehicles/airplane/000004.jpg"
+  ],
+  "vehicles/boat": [
+    "images/vehicles/boat/000001.jpg",
+    "images/vehicles/boat/000002.jpeg",
+    "images/vehicles/boat/000003.jpeg",
+    "images/vehicles/boat/000004.jpeg"
+  ],
+  "vehicles/bicycle": [
+    "images/vehicles/bicycle/000001.jpg",
+    "images/vehicles/bicycle/000002.jpg",
+    "images/vehicles/bicycle/000003.jpg",
+    "images/vehicles/bicycle/000004.jpg"
+  ],
+  "vehicles/rocket": [
+    "images/vehicles/rocket/000001.jpg",
+    "images/vehicles/rocket/000002.jpg",
+    "images/vehicles/rocket/000003.jpg",
+    "images/vehicles/rocket/000004.jpg"
+  ],
+  "vehicles/helicopter": [
+    "images/vehicles/helicopter/000001.jpg",
+    "images/vehicles/helicopter/000002.jpg",
+    "images/vehicles/helicopter/000003.jpg",
+    "images/vehicles/helicopter/000004.jpg"
+  ],
+  "nature/sun": [
+    "images/nature/sun/000001.jpg",
+    "images/nature/sun/000002.jpg",
+    "images/nature/sun/000003.jpg",
+    "images/nature/sun/000004.jpg"
+  ],
+  "nature/moon": [
+    "images/nature/moon/000001.jpg",
+    "images/nature/moon/000002.jpg",
+    "images/nature/moon/000003.jpg",
+    "images/nature/moon/000004.jpg"
+  ],
+  "nature/star": [
+    "images/nature/star/000001.jpg",
+    "images/nature/star/000002.jpg",
+    "images/nature/star/000003.jpg",
+    "images/nature/star/000004.jpg"
+  ],
+  "nature/tree": [
+    "images/nature/tree/000001.jpg",
+    "images/nature/tree/000002.jpg",
+    "images/nature/tree/000003.jpg",
+    "images/nature/tree/000004.jpg"
+  ],
+  "nature/flower": [
+    "images/nature/flower/000001.jpg",
+    "images/nature/flower/000002.jpg",
+    "images/nature/flower/000003.jpg",
+    "images/nature/flower/000004.jpg"
+  ],
+  "nature/rain": [
+    "images/nature/rain/000001.jpeg",
+    "images/nature/rain/000002.jpg",
+    "images/nature/rain/000003.jpg",
+    "images/nature/rain/000004.jpg"
+  ],
+  "nature/cloud": [
+    "images/nature/cloud/000001.jpg",
+    "images/nature/cloud/000002.jpg",
+    "images/nature/cloud/000003.jpg",
+    "images/nature/cloud/000004.jpg"
+  ],
+  "nature/rainbow": [
+    "images/nature/rainbow/000001.jpg",
+    "images/nature/rainbow/000002.jpg",
+    "images/nature/rainbow/000003.jpg",
+    "images/nature/rainbow/000004.jpg"
+  ],
+  "numbers/one": [
+    "images/numbers/one/000001.jpg",
+    "images/numbers/one/000002.jpg",
+    "images/numbers/one/000003.jpg",
+    "images/numbers/one/000004.jpg"
+  ],
+  "numbers/two": [
+    "images/numbers/two/000001.jpg",
+    "images/numbers/two/000002.jpg",
+    "images/numbers/two/000003.jpg",
+    "images/numbers/two/000004.jpg"
+  ],
+  "numbers/three": [
+    "images/numbers/three/000001.jpg",
+    "images/numbers/three/000002.jpg",
+    "images/numbers/three/000003.jpg",
+    "images/numbers/three/000004.jpg"
+  ],
+  "numbers/four": [
+    "images/numbers/four/000001.jpg",
+    "images/numbers/four/000002.jpg",
+    "images/numbers/four/000003.jpg",
+    "images/numbers/four/000004.jpg"
+  ],
+  "numbers/five": [
+    "images/numbers/five/000001.jpg",
+    "images/numbers/five/000002.jpg",
+    "images/numbers/five/000003.jpg",
+    "images/numbers/five/000004.jpg"
+  ],
+  "bodyParts/hand": [
+    "images/bodyParts/hand/000001.jpg",
+    "images/bodyParts/hand/000002.jpg",
+    "images/bodyParts/hand/000003.jpg",
+    "images/bodyParts/hand/000004.jpg"
+  ],
+  "bodyParts/foot": [
+    "images/bodyParts/foot/000001.jpg",
+    "images/bodyParts/foot/000002.jpg",
+    "images/bodyParts/foot/000003.jpg",
+    "images/bodyParts/foot/000004.jpg"
+  ],
+  "bodyParts/eye": [
+    "images/bodyParts/eye/000001.jpg",
+    "images/bodyParts/eye/000002.jpg",
+    "images/bodyParts/eye/000003.jpg",
+    "images/bodyParts/eye/000004.png"
+  ],
+  "bodyParts/nose": [
+    "images/bodyParts/nose/000001.jpg",
+    "images/bodyParts/nose/000002.jpg",
+    "images/bodyParts/nose/000003.jpg",
+    "images/bodyParts/nose/000004.jpg"
+  ],
+  "bodyParts/mouth": [
+    "images/bodyParts/mouth/000001.jpg",
+    "images/bodyParts/mouth/000002.jpg",
+    "images/bodyParts/mouth/000003.jpg",
+    "images/bodyParts/mouth/000004.jpg"
+  ],
+  "bodyParts/ear": [
+    "images/bodyParts/ear/000001.jpg",
+    "images/bodyParts/ear/000002.jpg",
+    "images/bodyParts/ear/000003.jpg",
+    "images/bodyParts/ear/000004.jpg"
+  ]
+}

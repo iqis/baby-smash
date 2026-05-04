@@ -85,6 +85,40 @@
     let activeConfig = null; // live reference to admin config
     let flashcardLocked = false; // lock input during flashcard TTS
 
+    // --- Image Manifest & Cache ---
+    let imageManifest = null;
+    const imageCache = {}; // path -> HTMLImageElement
+
+    function loadImageManifest() {
+        fetch('image-manifest.json')
+            .then(r => r.json())
+            .then(data => {
+                imageManifest = data;
+                // Preload first image of each item
+                Object.values(data).forEach(paths => {
+                    if (paths[0]) preloadImage(paths[0]);
+                });
+            })
+            .catch(() => { imageManifest = null; });
+    }
+
+    function preloadImage(path) {
+        if (imageCache[path]) return imageCache[path];
+        const img = new Image();
+        img.src = path;
+        imageCache[path] = img;
+        return img;
+    }
+
+    function getFlashcardImage(categoryKey, itemEn) {
+        if (!imageManifest) return null;
+        const key = categoryKey + '/' + itemEn.toLowerCase();
+        const paths = imageManifest[key];
+        if (!paths || paths.length === 0) return null;
+        const chosen = paths[Math.floor(Math.random() * paths.length)];
+        return preloadImage(chosen);
+    }
+
     // --- Audio ---
     function initAudio() {
         if (!audioCtx) {
@@ -409,17 +443,19 @@
     // --- Flashcard Element ---
     function createFlashcardElement(categoryKey) {
         const item = FLASHCARDS.getRandomItem(categoryKey);
-        const size = 200 + Math.random() * 60;
-        const x = canvas.width * 0.5 + (Math.random() - 0.5) * canvas.width * 0.3;
+        const size = 300 + Math.random() * 90;
+        const x = canvas.width * 0.5 + (Math.random() - 0.5) * canvas.width * 0.2;
         const y = canvas.height * 0.4;
 
         // Calculate how long TTS will take
         const delay = activeConfig ? activeConfig.ttsDelayBetween : 1200;
         const hasThirdLang = activeConfig ?
             Object.values(activeConfig.enabledLanguages).some(v => v) : true;
-        // Total TTS time: last utterance start + estimated speech duration
         const ttsDuration = hasThirdLang ? delay * 2 + 1500 : delay + 1500;
-        const flashcardDuration = Math.max(ttsDuration + 500, 5000); // at least 5s
+        const flashcardDuration = Math.max(ttsDuration + 500, 5000);
+
+        // Try to get a photo for this item
+        const photo = getFlashcardImage(categoryKey, item.en);
 
         // Clear previous flashcard elements (show one at a time)
         elements = elements.filter(el => el.mode !== 'flashcard');
@@ -428,6 +464,7 @@
             mode: 'flashcard',
             categoryKey,
             item,
+            photo,  // HTMLImageElement or null
             x, y, size,
             createdAt: Date.now(),
             customDuration: flashcardDuration,
@@ -842,10 +879,45 @@
         ctx.save();
         ctx.globalAlpha = el.opacity;
 
-        // Draw the visual
-        const cat = FLASHCARDS.CATEGORIES[el.categoryKey];
-        if (cat && cat.draw) {
-            cat.draw(ctx, el.item, el.x, el.y, el.size);
+        const imgSize = el.size;
+
+        // Try photo first, fallback to programmatic drawing
+        if (el.photo && el.photo.complete && el.photo.naturalWidth > 0) {
+            // Draw photo centered, fitted into a rounded square
+            const aspect = el.photo.naturalWidth / el.photo.naturalHeight;
+            let dw, dh;
+            if (aspect > 1) { dw = imgSize; dh = imgSize / aspect; }
+            else { dh = imgSize; dw = imgSize * aspect; }
+
+            const dx = el.x - dw / 2;
+            const dy = el.y - dh / 2 - imgSize * 0.15;
+            const radius = 16;
+
+            // Rounded clip
+            ctx.beginPath();
+            ctx.moveTo(dx + radius, dy);
+            ctx.lineTo(dx + dw - radius, dy);
+            ctx.quadraticCurveTo(dx + dw, dy, dx + dw, dy + radius);
+            ctx.lineTo(dx + dw, dy + dh - radius);
+            ctx.quadraticCurveTo(dx + dw, dy + dh, dx + dw - radius, dy + dh);
+            ctx.lineTo(dx + radius, dy + dh);
+            ctx.quadraticCurveTo(dx, dy + dh, dx, dy + dh - radius);
+            ctx.lineTo(dx, dy + radius);
+            ctx.quadraticCurveTo(dx, dy, dx + radius, dy);
+            ctx.closePath();
+            ctx.clip();
+            ctx.drawImage(el.photo, dx, dy, dw, dh);
+
+            // Subtle border
+            ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+        } else {
+            // Fallback: programmatic drawing from FLASHCARDS
+            const cat = FLASHCARDS.CATEGORIES[el.categoryKey];
+            if (cat && cat.draw) {
+                cat.draw(ctx, el.item, el.x, el.y - imgSize * 0.15, el.size);
+            }
         }
 
         // Draw the word below the visual
@@ -853,7 +925,7 @@
         ctx.font = `bold ${fontSize}px system-ui, -apple-system, sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
-        const textY = el.y + el.size * 0.3;
+        const textY = el.y + el.size * 0.35;
 
         // English
         ctx.fillStyle = '#5a6a7a';
@@ -1115,6 +1187,9 @@
     function init() {
         canvas = document.getElementById('canvas');
         ctx = canvas.getContext('2d');
+
+        // Load image manifest for photo flashcards
+        loadImageManifest();
 
         // Load admin config
         activeConfig = ADMIN.load();
