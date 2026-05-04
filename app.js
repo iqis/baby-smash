@@ -111,12 +111,16 @@
             .then(r => r.json())
             .then(data => {
                 audioManifest = data;
+                console.log('[BabySmash] Audio manifest loaded:', Object.keys(data).length, 'items');
                 // Preload English audio for quick response
                 Object.values(data).forEach(langs => {
                     if (langs.en) preloadAudio(langs.en);
                 });
             })
-            .catch(() => { audioManifest = null; });
+            .catch(e => {
+                audioManifest = null;
+                console.warn('[BabySmash] Audio manifest failed (using browser TTS):', e.message || e);
+            });
     }
 
     function preloadAudio(path) {
@@ -136,12 +140,21 @@
         return preloadAudio(entry[lang]);
     }
 
-    function playPregenAudio(audioEl, volume) {
-        if (!audioEl || !audioEl.src) return false;
-        const clone = audioEl.cloneNode();
-        clone.volume = volume;
-        clone.play().catch(() => {});
-        return true;
+    function playPregenAudio(audioEl, volume, fallbackFn) {
+        if (!audioEl || !audioEl.src) {
+            if (fallbackFn) fallbackFn();
+            return;
+        }
+        // Reset and play the original element (already has data loaded)
+        audioEl.currentTime = 0;
+        audioEl.volume = volume;
+        const playPromise = audioEl.play();
+        if (playPromise) {
+            playPromise.catch(() => {
+                // Pre-gen audio failed, use browser TTS fallback
+                if (fallbackFn) fallbackFn();
+            });
+        }
     }
 
     function preloadImage(path) {
@@ -313,6 +326,7 @@
     function speakLetter(char) {
         if (!('speechSynthesis' in window)) return;
         if (activeConfig && !activeConfig.ttsEnabled) return;
+        speechSynthesis.cancel(); // Prevent queue buildup
         const rate = activeConfig ? activeConfig.ttsRate : 0.8;
         const pitch = activeConfig ? activeConfig.ttsPitch : 1.2;
         const vol = activeConfig ? activeConfig.masterVolume / 100 : 0.7;
@@ -323,7 +337,8 @@
         utter.rate = rate;
         utter.pitch = pitch;
         utter.volume = vol;
-        speechSynthesis.speak(utter);
+        // Small delay after cancel to avoid race condition
+        setTimeout(() => { speechSynthesis.speak(utter); }, 50);
         playBellTone(PENTATONIC[Math.floor(Math.random() * PENTATONIC.length)], 0.08);
     }
 
@@ -541,15 +556,16 @@
         }
 
         // Build the TTS sequence: English, Chinese, + one rotating third language
+        // Start with 100ms offset to avoid cancel/speak race condition
         const sequence = [
-            { text: item.en, lang: 'en-US', langKey: 'en', delay: 0 },
-            { text: item.zh, lang: 'zh-CN', langKey: 'zh', delay: delay },
+            { text: item.en, lang: 'en-US', langKey: 'en', delay: 100 },
+            { text: item.zh, lang: 'zh-CN', langKey: 'zh', delay: delay + 100 },
         ];
 
         if (enabledLangs.length > 0) {
             const third = enabledLangs[thirdLangRotation % enabledLangs.length];
             thirdLangRotation++;
-            sequence.push({ text: item[third.key], lang: third.code, langKey: third.key, delay: delay * 2 });
+            sequence.push({ text: item[third.key], lang: third.code, langKey: third.key, delay: delay * 2 + 100 });
         }
 
         // Find the current flashcard's category key for audio lookup
@@ -561,23 +577,28 @@
 
         sequence.forEach(({ text, lang, langKey, delay: d }) => {
             setTimeout(() => {
+                const browserTtsFallback = () => {
+                    if (!('speechSynthesis' in window)) return;
+                    const utter = new SpeechSynthesisUtterance(text);
+                    utter.lang = lang;
+                    const voice = FLASHCARDS.getBestVoice && FLASHCARDS.getBestVoice(lang);
+                    if (voice) utter.voice = voice;
+                    utter.rate = rate;
+                    utter.pitch = pitch;
+                    utter.volume = vol;
+                    speechSynthesis.speak(utter);
+                };
+
                 // Try pre-generated audio first
                 if (catKey) {
                     const audio = getFlashcardAudio(catKey, item.en, langKey);
-                    if (audio && audio.src && playPregenAudio(audio, vol)) {
-                        return; // Pre-generated audio playing
+                    if (audio && audio.src) {
+                        playPregenAudio(audio, vol, browserTtsFallback);
+                        return;
                     }
                 }
-                // Fallback to browser TTS
-                if (!('speechSynthesis' in window)) return;
-                const utter = new SpeechSynthesisUtterance(text);
-                utter.lang = lang;
-                const voice = FLASHCARDS.getBestVoice && FLASHCARDS.getBestVoice(lang);
-                if (voice) utter.voice = voice;
-                utter.rate = rate;
-                utter.pitch = pitch;
-                utter.volume = vol;
-                speechSynthesis.speak(utter);
+                // No pre-gen available, use browser TTS directly
+                browserTtsFallback();
             }, d);
         });
     }
