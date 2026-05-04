@@ -1135,12 +1135,6 @@
         window.addEventListener('keydown', blockDangerousKeys, true);
         window.addEventListener('keydown', handleKeyDown);
 
-        window.addEventListener('mousedown', handleInteraction);
-        window.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            handleInteraction();
-        });
-
         window.addEventListener('contextmenu', e => e.preventDefault());
 
         animate();
