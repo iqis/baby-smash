@@ -53,7 +53,22 @@
     // Animal shapes drawn as simplified SVG-like paths
     const ANIMAL_NAMES = ['cat', 'bird', 'fish', 'bunny', 'bear', 'turtle'];
 
-    const MODE_NAMES = ['shapes', 'bubbles', 'nature', 'letters', 'music', 'animals'];
+    const ALL_MODES = [
+        'shapes', 'bubbles', 'nature', 'letters', 'music', 'animals',
+        // Flashcard modes (mapped to FLASHCARDS.categoryKeys)
+        'colors', 'animals_fc', 'fruits', 'vehicles', 'nature_words', 'numbers', 'body_parts',
+    ];
+
+    // Map flashcard mode names to FLASHCARDS category keys
+    const FLASHCARD_MODE_MAP = {
+        'colors': 'colors',
+        'animals_fc': 'animals',
+        'fruits': 'fruits',
+        'vehicles': 'vehicles',
+        'nature_words': 'nature_words',
+        'numbers': 'numbers',
+        'body_parts': 'body_parts',
+    };
 
     // --- State ---
     let canvas, ctx;
@@ -62,9 +77,12 @@
     let lastKeyTime = 0;
     let animationId = null;
     let currentMode = 0;
+    let activeModes = ALL_MODES.slice(); // filtered by admin config
     let autoRotateTimer = null;
     let xyloIndex = 0;
+    let thirdLangRotation = 0;
     let started = false;
+    let activeConfig = null; // live reference to admin config
 
     // --- Audio ---
     function initAudio() {
@@ -76,8 +94,11 @@
         }
     }
 
-    function playBellTone(frequency, volume = 0.15) {
+    function playBellTone(frequency, volume) {
         if (!audioCtx) return;
+        if (activeConfig && !activeConfig.soundEnabled) return;
+        const vol = volume != null ? volume : 0.15;
+        const masterScale = activeConfig ? activeConfig.masterVolume / 100 : 1;
         const now = audioCtx.currentTime;
 
         const osc = audioCtx.createOscillator();
@@ -91,11 +112,11 @@
         osc2.frequency.setValueAtTime(frequency * 2, now);
 
         gain.gain.setValueAtTime(0, now);
-        gain.gain.linearRampToValueAtTime(volume, now + 0.05);
+        gain.gain.linearRampToValueAtTime(vol * masterScale, now + 0.05);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
 
         gain2.gain.setValueAtTime(0, now);
-        gain2.gain.linearRampToValueAtTime(volume * 0.2, now + 0.02);
+        gain2.gain.linearRampToValueAtTime(vol * 0.2 * masterScale, now + 0.02);
         gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
 
         osc.connect(gain).connect(audioCtx.destination);
@@ -109,6 +130,8 @@
 
     function playPop() {
         if (!audioCtx) return;
+        if (activeConfig && !activeConfig.soundEnabled) return;
+        const masterScale = activeConfig ? activeConfig.masterVolume / 100 : 1;
         const now = audioCtx.currentTime;
 
         const osc = audioCtx.createOscillator();
@@ -117,7 +140,7 @@
         osc.frequency.setValueAtTime(400, now);
         osc.frequency.exponentialRampToValueAtTime(150, now + 0.15);
 
-        gain.gain.setValueAtTime(0.12, now);
+        gain.gain.setValueAtTime(0.12 * masterScale, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
 
         osc.connect(gain).connect(audioCtx.destination);
@@ -127,6 +150,8 @@
 
     function playRaindrop() {
         if (!audioCtx) return;
+        if (activeConfig && !activeConfig.soundEnabled) return;
+        const masterScale = activeConfig ? activeConfig.masterVolume / 100 : 1;
         const now = audioCtx.currentTime;
         const freq = 800 + Math.random() * 1200;
 
@@ -136,7 +161,7 @@
         osc.frequency.setValueAtTime(freq, now);
         osc.frequency.exponentialRampToValueAtTime(freq * 0.5, now + 0.2);
 
-        gain.gain.setValueAtTime(0.08, now);
+        gain.gain.setValueAtTime(0.08 * masterScale, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
 
         osc.connect(gain).connect(audioCtx.destination);
@@ -146,6 +171,8 @@
 
     function playXylophone(freq) {
         if (!audioCtx) return;
+        if (activeConfig && !activeConfig.soundEnabled) return;
+        const masterScale = activeConfig ? activeConfig.masterVolume / 100 : 1;
         const now = audioCtx.currentTime;
 
         const osc = audioCtx.createOscillator();
@@ -153,9 +180,8 @@
         osc.type = 'triangle';
         osc.frequency.setValueAtTime(freq, now);
 
-        // Bright xylophone-like attack
         gain.gain.setValueAtTime(0, now);
-        gain.gain.linearRampToValueAtTime(0.2, now + 0.01);
+        gain.gain.linearRampToValueAtTime(0.2 * masterScale, now + 0.01);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 1.0);
 
         const osc2 = audioCtx.createOscillator();
@@ -163,7 +189,7 @@
         osc2.type = 'sine';
         osc2.frequency.setValueAtTime(freq * 3, now);
         gain2.gain.setValueAtTime(0, now);
-        gain2.gain.linearRampToValueAtTime(0.04, now + 0.005);
+        gain2.gain.linearRampToValueAtTime(0.04 * masterScale, now + 0.005);
         gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
 
         osc.connect(gain).connect(audioCtx.destination);
@@ -176,6 +202,8 @@
 
     function playAnimalSound() {
         if (!audioCtx) return;
+        if (activeConfig && !activeConfig.soundEnabled) return;
+        const masterScale = activeConfig ? activeConfig.masterVolume / 100 : 1;
         const now = audioCtx.currentTime;
 
         // Gentle warbling tone
@@ -195,7 +223,7 @@
         lfo.connect(lfoGain).connect(osc.frequency);
 
         gain.gain.setValueAtTime(0, now);
-        gain.gain.linearRampToValueAtTime(0.1, now + 0.1);
+        gain.gain.linearRampToValueAtTime(0.1 * masterScale, now + 0.1);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
 
         osc.connect(gain).connect(audioCtx.destination);
@@ -206,14 +234,16 @@
     }
 
     function speakLetter(char) {
-        if ('speechSynthesis' in window) {
-            const utter = new SpeechSynthesisUtterance(char);
-            utter.rate = 0.8;
-            utter.pitch = 1.2;
-            utter.volume = 0.7;
-            speechSynthesis.speak(utter);
-        }
-        // Also play a gentle tone
+        if (!('speechSynthesis' in window)) return;
+        if (activeConfig && !activeConfig.ttsEnabled) return;
+        const rate = activeConfig ? activeConfig.ttsRate : 0.8;
+        const pitch = activeConfig ? activeConfig.ttsPitch : 1.2;
+        const vol = activeConfig ? activeConfig.masterVolume / 100 : 0.7;
+        const utter = new SpeechSynthesisUtterance(char);
+        utter.rate = rate;
+        utter.pitch = pitch;
+        utter.volume = vol;
+        speechSynthesis.speak(utter);
         playBellTone(PENTATONIC[Math.floor(Math.random() * PENTATONIC.length)], 0.08);
     }
 
@@ -346,11 +376,20 @@
     }
 
     function createElement() {
-        if (elements.length >= CONFIG.maxElements) {
+        const maxEl = activeConfig ? activeConfig.maxElements : CONFIG.maxElements;
+        if (elements.length >= maxEl) {
             elements.shift();
         }
 
-        switch (MODE_NAMES[currentMode]) {
+        const modeName = activeModes[currentMode % activeModes.length];
+
+        // Check if it's a flashcard mode
+        if (FLASHCARD_MODE_MAP[modeName]) {
+            createFlashcardElement(FLASHCARD_MODE_MAP[modeName]);
+            return;
+        }
+
+        switch (modeName) {
             case 'shapes': createShapeElement(); break;
             case 'bubbles': createBubbleElement(); break;
             case 'nature': createNatureElement(); break;
@@ -360,13 +399,80 @@
         }
     }
 
+    // --- Flashcard Element ---
+    function createFlashcardElement(categoryKey) {
+        const item = FLASHCARDS.getRandomItem(categoryKey);
+        const size = 200 + Math.random() * 60;
+        const x = canvas.width * 0.5 + (Math.random() - 0.5) * canvas.width * 0.3;
+        const y = canvas.height * 0.4;
+
+        elements.push({
+            mode: 'flashcard',
+            categoryKey,
+            item,
+            x, y, size,
+            createdAt: Date.now(),
+            opacity: 0,
+        });
+
+        // Play a gentle bell + TTS
+        playBellTone(PENTATONIC[Math.floor(Math.random() * PENTATONIC.length)], 0.08);
+        if (activeConfig && activeConfig.ttsEnabled !== false) {
+            speakFlashcard(item);
+        }
+    }
+
+    function speakFlashcard(item) {
+        if (!('speechSynthesis' in window)) return;
+        const rate = activeConfig ? activeConfig.ttsRate : 0.8;
+        const pitch = activeConfig ? activeConfig.ttsPitch : 1.1;
+        const vol = activeConfig ? activeConfig.masterVolume / 100 : 0.8;
+        const delay = activeConfig ? activeConfig.ttsDelayBetween : 1200;
+
+        // Determine enabled third languages
+        const enabledLangs = [];
+        if (activeConfig) {
+            if (activeConfig.enabledLanguages['ja-JP']) enabledLangs.push({ code: 'ja-JP', key: 'ja' });
+            if (activeConfig.enabledLanguages['hi-IN']) enabledLangs.push({ code: 'hi-IN', key: 'hi' });
+            if (activeConfig.enabledLanguages['es-ES']) enabledLangs.push({ code: 'es-ES', key: 'es' });
+        } else {
+            enabledLangs.push({ code: 'ja-JP', key: 'ja' }, { code: 'hi-IN', key: 'hi' }, { code: 'es-ES', key: 'es' });
+        }
+
+        const sequence = [
+            { text: item.en, lang: 'en-US', delay: 0 },
+            { text: item.zh, lang: 'zh-CN', delay: delay },
+        ];
+
+        // Pick one third language (rotate)
+        if (enabledLangs.length > 0) {
+            const third = enabledLangs[thirdLangRotation % enabledLangs.length];
+            thirdLangRotation++;
+            sequence.push({ text: item[third.key], lang: third.code, delay: delay * 2 });
+        }
+
+        sequence.forEach(({ text, lang, delay: d }) => {
+            setTimeout(() => {
+                const utter = new SpeechSynthesisUtterance(text);
+                utter.lang = lang;
+                utter.rate = rate;
+                utter.pitch = pitch;
+                utter.volume = vol;
+                speechSynthesis.speak(utter);
+            }, d);
+        });
+    }
+
     // --- Drawing Functions ---
 
     function getOpacity(el, now) {
+        const duration = activeConfig ? activeConfig.elementDuration : CONFIG.elementDuration;
+        const fadeIn = activeConfig ? activeConfig.fadeInTime : CONFIG.fadeInTime;
+        const fadeOut = activeConfig ? activeConfig.fadeOutTime : CONFIG.fadeOutTime;
         const age = now - el.createdAt;
-        if (age < CONFIG.fadeInTime) return age / CONFIG.fadeInTime;
-        if (age > CONFIG.elementDuration - CONFIG.fadeOutTime) {
-            return Math.max(0, (CONFIG.elementDuration - age) / CONFIG.fadeOutTime);
+        if (age < fadeIn) return age / fadeIn;
+        if (age > duration - fadeOut) {
+            return Math.max(0, (duration - age) / fadeOut);
         }
         return 1;
     }
@@ -700,23 +806,57 @@
             case 'animals':
                 drawAnimal(el);
                 break;
+            case 'flashcard':
+                drawFlashcard(el);
+                break;
         }
+    }
+
+    // --- Flashcard Drawing ---
+    function drawFlashcard(el) {
+        ctx.save();
+        ctx.globalAlpha = el.opacity;
+
+        // Draw the visual
+        const cat = FLASHCARDS.CATEGORIES[el.categoryKey];
+        if (cat && cat.draw) {
+            cat.draw(ctx, el.item, el.x, el.y, el.size);
+        }
+
+        // Draw the word below the visual
+        const fontSize = el.size * 0.18;
+        ctx.font = `bold ${fontSize}px system-ui, -apple-system, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        const textY = el.y + el.size * 0.3;
+
+        // English
+        ctx.fillStyle = '#5a6a7a';
+        ctx.fillText(el.item.en, el.x, textY);
+        // Chinese
+        ctx.font = `${fontSize * 0.85}px system-ui`;
+        ctx.fillStyle = '#7a8a9a';
+        ctx.fillText(el.item.zh, el.x, textY + fontSize * 1.2);
+
+        ctx.restore();
     }
 
     // --- Update ---
     function updateElement(el, now) {
+        const duration = activeConfig ? activeConfig.elementDuration : CONFIG.elementDuration;
         const age = now - el.createdAt;
-        if (age > CONFIG.elementDuration) return false;
+        if (age > duration) return false;
 
         el.opacity = getOpacity(el, now);
+        const drift = activeConfig ? activeConfig.driftSpeed : CONFIG.driftSpeed;
 
         switch (el.mode) {
             case 'shapes':
-                el.y -= CONFIG.driftSpeed;
+                el.y -= drift;
                 el.rotation += 0.002;
                 break;
             case 'bubbles':
-                el.y -= CONFIG.driftSpeed * 1.5;
+                el.y -= drift * 1.5;
                 el.wobblePhase += el.wobbleSpeed;
                 el.x += Math.sin(el.wobblePhase) * 0.5;
                 break;
@@ -728,13 +868,16 @@
                 }
                 break;
             case 'letters':
-                el.y -= CONFIG.driftSpeed * 0.5;
+                el.y -= drift * 0.5;
                 break;
             case 'music':
-                // Bars just fade in and out
                 break;
             case 'animals':
-                el.y -= CONFIG.driftSpeed * 0.3;
+                el.y -= drift * 0.3;
+                break;
+            case 'flashcard':
+                // Flashcards stay mostly still, very gentle float
+                el.y -= drift * 0.15;
                 break;
         }
 
@@ -742,20 +885,32 @@
     }
 
     // --- Mode Management ---
+    function rebuildActiveModes() {
+        if (activeConfig) {
+            activeModes = ALL_MODES.filter(m => activeConfig.enabledModes[m]);
+        } else {
+            activeModes = ALL_MODES.slice();
+        }
+        if (activeModes.length === 0) activeModes = ['shapes']; // fallback
+        if (currentMode >= activeModes.length) currentMode = 0;
+    }
+
     function switchMode(index) {
-        currentMode = index % MODE_NAMES.length;
-        elements = []; // clear elements on mode switch
+        currentMode = index % activeModes.length;
+        elements = [];
         xyloIndex = 0;
         scheduleAutoRotate();
     }
 
     function nextMode() {
-        switchMode((currentMode + 1) % MODE_NAMES.length);
+        switchMode((currentMode + 1) % activeModes.length);
     }
 
     function scheduleAutoRotate() {
         if (autoRotateTimer) clearTimeout(autoRotateTimer);
-        const delay = CONFIG.autoRotateMin + Math.random() * (CONFIG.autoRotateMax - CONFIG.autoRotateMin);
+        const min = activeConfig ? activeConfig.autoRotateMin * 60 * 1000 : CONFIG.autoRotateMin;
+        const max = activeConfig ? activeConfig.autoRotateMax * 60 * 1000 : CONFIG.autoRotateMax;
+        const delay = min + Math.random() * (max - min);
         autoRotateTimer = setTimeout(nextMode, delay);
     }
 
@@ -767,19 +922,20 @@
         ctx.font = '14px system-ui';
         ctx.textAlign = 'right';
         ctx.textBaseline = 'top';
-        ctx.fillText(MODE_NAMES[currentMode], canvas.width - 16, 16);
+        const modeName = activeModes[currentMode % activeModes.length] || '';
+        ctx.fillText(modeName, canvas.width - 16, 16);
         ctx.restore();
     }
 
     // --- Animation Loop ---
     function animate() {
         const now = Date.now();
-
-        ctx.fillStyle = '#faf8f5';
+        const bg = activeConfig ? activeConfig.backgroundColor : '#faf8f5';
+        ctx.fillStyle = bg;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Draw persistent xylophone bar outlines in music mode
-        if (MODE_NAMES[currentMode] === 'music') {
+        const modeName = activeModes[currentMode % activeModes.length];
+        if (modeName === 'music') {
             drawXylophoneBackground();
         }
 
@@ -831,12 +987,23 @@
     function handleKeyDown(e) {
         if (e.key === 'Escape') return;
 
-        // Admin mode switch: Ctrl+Shift+1 through 6
+        // Admin mode switch: Ctrl+Shift+1 through 9 (up to 13 modes)
         if (e.ctrlKey && e.shiftKey) {
             const num = parseInt(e.key);
-            if (num >= 1 && num <= 6) {
+            if (num >= 1 && num <= 9) {
                 e.preventDefault();
                 switchMode(num - 1);
+                return;
+            }
+            // Ctrl+Shift+0 for mode 10, etc. — use N/P for next/prev
+            if (e.key === 'N' || e.key === 'n') {
+                e.preventDefault();
+                nextMode();
+                return;
+            }
+            if (e.key === 'P' || e.key === 'p') {
+                e.preventDefault();
+                switchMode((currentMode - 1 + activeModes.length) % activeModes.length);
                 return;
             }
         }
@@ -845,7 +1012,8 @@
         e.stopPropagation();
 
         const now = Date.now();
-        if (now - lastKeyTime < CONFIG.cooldown) return;
+        const cooldown = activeConfig ? activeConfig.cooldown : CONFIG.cooldown;
+        if (now - lastKeyTime < cooldown) return;
         lastKeyTime = now;
 
         initAudio();
@@ -884,15 +1052,28 @@
         if (!started) return;
         initAudio();
         const now = Date.now();
-        if (now - lastKeyTime < CONFIG.cooldown) return;
+        const cooldown = activeConfig ? activeConfig.cooldown : CONFIG.cooldown;
+        if (now - lastKeyTime < cooldown) return;
         lastKeyTime = now;
         createElement();
+    }
+
+    // --- Admin Config Callback ---
+    function onConfigChange(cfg) {
+        activeConfig = cfg;
+        rebuildActiveModes();
     }
 
     // --- Init ---
     function init() {
         canvas = document.getElementById('canvas');
         ctx = canvas.getContext('2d');
+
+        // Load admin config
+        activeConfig = ADMIN.load();
+        ADMIN.onConfigChange = onConfigChange;
+        ADMIN.initLongPress();
+        rebuildActiveModes();
 
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
