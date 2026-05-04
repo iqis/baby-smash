@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Baby Smash</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            overflow: hidden;
+            background: #faf8f5;
+            font-family: system-ui, sans-serif;
+            cursor: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #start-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #faf8f5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            cursor: pointer;
+        }
+
+        #start-overlay h1 {
+            font-size: 2.5rem;
+            color: #6b7b8d;
+            margin-bottom: 1rem;
+            font-weight: 300;
+        }
+
+        #start-overlay p {
+            font-size: 1.2rem;
+            color: #9ba8b4;
+        }
+
+        #start-overlay .hint {
+            margin-top: 2rem;
+            font-size: 0.9rem;
+            color: #b8c4ce;
+        }
+    </style>
+</head>
+<body>
+    <div id="start-overlay">
+        <h1>Baby Smash &#127800;</h1>
+        <p>Click anywhere to start fullscreen</p>
+        <p class="hint">Press Escape (parent) to exit &bull; Press any key to play!</p>
+    </div>
+    <canvas id="canvas"></canvas>
+    <script src="app.js"></script>
+</body>
+</html>
