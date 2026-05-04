@@ -907,7 +907,8 @@
     }
 
     function scheduleAutoRotate() {
-        if (autoRotateTimer) clearTimeout(autoRotateTimer);
+        if (autoRotateTimer) { clearTimeout(autoRotateTimer); autoRotateTimer = null; }
+        if (activeConfig && !activeConfig.autoRotateEnabled) return;
         const min = activeConfig ? activeConfig.autoRotateMin * 60 * 1000 : CONFIG.autoRotateMin;
         const max = activeConfig ? activeConfig.autoRotateMax * 60 * 1000 : CONFIG.autoRotateMax;
         const delay = min + Math.random() * (max - min);
@@ -1062,6 +1063,25 @@
     function onConfigChange(cfg) {
         activeConfig = cfg;
         rebuildActiveModes();
+        // Re-schedule or cancel auto-rotate based on config
+        if (started) {
+            if (cfg.autoRotateEnabled) {
+                scheduleAutoRotate();
+            } else {
+                if (autoRotateTimer) { clearTimeout(autoRotateTimer); autoRotateTimer = null; }
+            }
+        }
+    }
+
+    function switchToModeByName(modeName) {
+        const idx = activeModes.indexOf(modeName);
+        if (idx >= 0) {
+            switchMode(idx);
+        }
+    }
+
+    function getCurrentModeName() {
+        return activeModes[currentMode % activeModes.length] || '';
     }
 
     // --- Init ---
@@ -1072,6 +1092,10 @@
         // Load admin config
         activeConfig = ADMIN.load();
         ADMIN.onConfigChange = onConfigChange;
+        ADMIN.onSwitchMode = switchToModeByName;
+        ADMIN.onNextMode = nextMode;
+        ADMIN.onPrevMode = function () { switchMode((currentMode - 1 + activeModes.length) % activeModes.length); };
+        ADMIN.getCurrentModeName = getCurrentModeName;
         ADMIN.initLongPress();
         rebuildActiveModes();
 

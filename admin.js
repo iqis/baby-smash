@@ -56,6 +56,7 @@ const ADMIN = (function () {
             'es-ES': true,
         },
         ttsDelayBetween: 1200, // ms between language utterances
+        autoRotateEnabled: true, // whether to auto-rotate at all
     };
 
     let config = null;
@@ -278,17 +279,82 @@ const ADMIN = (function () {
             }
             #admin-panel .btn-close:hover { background: #8ec8f0; }
             #admin-panel .btn-reset:hover { background: #555; }
+            #admin-panel .mode-switcher {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+                gap: 6px;
+                margin: 10px 0;
+            }
+            #admin-panel .mode-btn {
+                padding: 8px 10px;
+                border: 2px solid #333;
+                border-radius: 8px;
+                background: #252540;
+                color: #c0c0c0;
+                font-size: 0.78rem;
+                cursor: pointer;
+                text-align: center;
+                transition: all 0.15s;
+            }
+            #admin-panel .mode-btn:hover { border-color: #a7d8f4; color: #fff; }
+            #admin-panel .mode-btn.active {
+                border-color: #b8e6c8;
+                background: #2a3a2a;
+                color: #b8e6c8;
+                font-weight: 600;
+            }
+            #admin-panel .mode-btn.disabled {
+                opacity: 0.35;
+                pointer-events: none;
+            }
+            #admin-panel .nav-row {
+                display: flex;
+                gap: 8px;
+                align-items: center;
+                margin: 10px 0;
+            }
+            #admin-panel .nav-btn {
+                padding: 6px 16px;
+                border: 1px solid #555;
+                border-radius: 6px;
+                background: #2a2a3e;
+                color: #ddd;
+                cursor: pointer;
+                font-size: 0.85rem;
+            }
+            #admin-panel .nav-btn:hover { background: #3a3a5e; border-color: #a7d8f4; }
+            #admin-panel .auto-rotate-status {
+                font-size: 0.8rem;
+                color: #888;
+                margin-left: auto;
+            }
         `;
         document.head.appendChild(style);
     }
 
     function renderPanel() {
         const inner = panelEl.querySelector('.admin-inner');
+        const currentModeName = typeof getCurrentModeName === 'function' ? getCurrentModeName() : '';
         inner.innerHTML = `
             <h2>
                 <span>⚙️ Admin Panel</span>
                 <span style="font-size:0.7rem; color:#666;">Long-press Ctrl to close</span>
             </h2>
+
+            <h3>🎮 Now Playing</h3>
+            <div class="nav-row">
+                <button class="nav-btn" onclick="ADMIN._switchPrev()">◀ Prev</button>
+                <button class="nav-btn" onclick="ADMIN._switchNext()">Next ▶</button>
+                <span class="auto-rotate-status" id="auto-rotate-status">
+                    Auto: ${config.autoRotateEnabled ? '✅ ON' : '❌ OFF'}
+                </span>
+                <button class="nav-btn" onclick="ADMIN._toggleAutoRotate()" style="margin-left:8px;">
+                    ${config.autoRotateEnabled ? 'Pause Auto' : 'Resume Auto'}
+                </button>
+            </div>
+            <div class="mode-switcher" id="mode-switcher">
+                ${buildModeSwitcher(currentModeName)}
+            </div>
 
             <h3>⏱ Timing</h3>
             ${slider('elementDuration', 'Element Duration', 'ms', 1000, 8000, 100)}
@@ -312,7 +378,7 @@ const ADMIN = (function () {
             ${toggle('soundEnabled', 'Sound Effects')}
             ${toggle('ttsEnabled', 'Text-to-Speech')}
 
-            <h3>🎭 Modes</h3>
+            <h3>🎭 Modes (enable/disable in rotation)</h3>
             <div class="modes-grid">
                 ${modeToggle('shapes', '⬡ Shapes')}
                 ${modeToggle('bubbles', '🫧 Bubbles')}
@@ -377,9 +443,37 @@ const ADMIN = (function () {
                 applyConfig();
             });
         });
+
+        // Bind mode switcher buttons
+        inner.querySelectorAll('[data-switch-mode]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                ADMIN._switchTo(btn.dataset.switchMode);
+            });
+        });
     }
 
     // --- HTML Helpers ---
+    const MODE_LABELS = {
+        shapes: '⬡ Shapes', bubbles: '🫧 Bubbles', nature: '🍃 Nature',
+        letters: '🔤 Letters', music: '🎵 Music', animals: '🐾 Animals',
+        colors: '🎨 Colors', animals_fc: '🐘 Animals', fruits: '🍎 Fruits',
+        vehicles: '🚗 Vehicles', nature_words: '🌈 Nature', numbers: '🔢 Numbers',
+        body_parts: '🖐 Body',
+    };
+
+    function buildModeSwitcher(currentModeName) {
+        const allModes = Object.keys(config.enabledModes);
+        return allModes.map(mode => {
+            const enabled = config.enabledModes[mode];
+            const active = mode === currentModeName;
+            const classes = ['mode-btn'];
+            if (active) classes.push('active');
+            if (!enabled) classes.push('disabled');
+            const label = MODE_LABELS[mode] || mode;
+            return `<button class="${classes.join(' ')}" data-switch-mode="${mode}" ${!enabled ? 'disabled' : ''}>${label}</button>`;
+        }).join('');
+    }
+
     function slider(key, label, unit, min, max, step) {
         const val = config[key];
         return `<div class="field">
@@ -420,8 +514,12 @@ const ADMIN = (function () {
         </div>`;
     }
 
-    // --- Config Application (callback set by app.js) ---
+    // --- Config Application (callbacks set by app.js) ---
     let onConfigChange = null;
+    let onSwitchMode = null;
+    let onNextMode = null;
+    let onPrevMode = null;
+    let getCurrentModeName = null;
 
     function applyConfig() {
         if (onConfigChange) onConfigChange(config);
@@ -436,5 +534,18 @@ const ADMIN = (function () {
         initLongPress,
         get config() { return config; },
         set onConfigChange(fn) { onConfigChange = fn; },
+        set onSwitchMode(fn) { onSwitchMode = fn; },
+        set onNextMode(fn) { onNextMode = fn; },
+        set onPrevMode(fn) { onPrevMode = fn; },
+        set getCurrentModeName(fn) { getCurrentModeName = fn; },
+        _switchNext() { if (onNextMode) onNextMode(); if (panelVisible) renderPanel(); },
+        _switchPrev() { if (onPrevMode) onPrevMode(); if (panelVisible) renderPanel(); },
+        _switchTo(mode) { if (onSwitchMode) onSwitchMode(mode); if (panelVisible) renderPanel(); },
+        _toggleAutoRotate() {
+            config.autoRotateEnabled = !config.autoRotateEnabled;
+            save();
+            applyConfig();
+            if (panelVisible) renderPanel();
+        },
     };
 })();
