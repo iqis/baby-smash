@@ -51,7 +51,7 @@
     const NUMBERS = '0123456789';
 
     // Animal shapes drawn as simplified SVG-like paths
-    const ANIMAL_NAMES = ['cat', 'bird', 'fish', 'bunny', 'bear', 'turtle'];
+    const ANIMAL_NAMES = ['cat', 'bird', 'fish', 'bunny', 'bear', 'turtle', 'elephant', 'frog', 'dog', 'penguin'];
 
     const ALL_MODES = [
         'shapes', 'bubbles', 'nature', 'letters', 'music', 'animals',
@@ -403,37 +403,57 @@
         osc2.stop(now + 0.3);
     }
 
-    function playAnimalSound() {
+    function playAnimalVoice(animal) {
         if (!audioCtx) return;
         if (activeConfig && !activeConfig.soundEnabled) return;
         const masterScale = activeConfig ? activeConfig.masterVolume / 100 : 1;
         const now = audioCtx.currentTime;
 
-        // Gentle warbling tone
+        // Each animal gets a unique synthesized sound character
+        const sounds = {
+            cat: { freq: 600, type: 'sine', lfoRate: 5, lfoDepth: 50, dur: 0.6 },
+            dog: { freq: 250, type: 'sawtooth', lfoRate: 8, lfoDepth: 20, dur: 0.4 },
+            bird: { freq: 1200, type: 'sine', lfoRate: 12, lfoDepth: 200, dur: 0.5 },
+            fish: { freq: 800, type: 'sine', lfoRate: 0, lfoDepth: 0, dur: 0.3 },
+            bunny: { freq: 500, type: 'triangle', lfoRate: 6, lfoDepth: 40, dur: 0.35 },
+            bear: { freq: 150, type: 'sawtooth', lfoRate: 3, lfoDepth: 15, dur: 0.7 },
+            turtle: { freq: 200, type: 'triangle', lfoRate: 2, lfoDepth: 10, dur: 0.5 },
+            elephant: { freq: 120, type: 'sawtooth', lfoRate: 4, lfoDepth: 30, dur: 0.9 },
+            frog: { freq: 350, type: 'square', lfoRate: 15, lfoDepth: 100, dur: 0.3 },
+            penguin: { freq: 700, type: 'sine', lfoRate: 7, lfoDepth: 60, dur: 0.5 },
+        };
+        const s = sounds[animal] || sounds.cat;
+
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
-        const lfo = audioCtx.createOscillator();
-        const lfoGain = audioCtx.createGain();
+        const filter = audioCtx.createBiquadFilter();
+        osc.type = s.type;
+        osc.frequency.setValueAtTime(s.freq, now);
+        // Pitch slide for character
+        osc.frequency.exponentialRampToValueAtTime(s.freq * (animal === 'bird' ? 1.5 : 0.7), now + s.dur * 0.7);
 
-        const baseFreq = 300 + Math.random() * 400;
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(baseFreq, now);
-
-        lfo.type = 'sine';
-        lfo.frequency.setValueAtTime(4 + Math.random() * 4, now);
-        lfoGain.gain.setValueAtTime(30, now);
-
-        lfo.connect(lfoGain).connect(osc.frequency);
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(s.freq * 4, now);
+        filter.Q.setValueAtTime(1, now);
 
         gain.gain.setValueAtTime(0, now);
-        gain.gain.linearRampToValueAtTime(0.1 * masterScale, now + 0.1);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+        gain.gain.linearRampToValueAtTime(0.1 * masterScale, now + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + s.dur);
 
-        osc.connect(gain).connect(audioCtx.destination);
-        lfo.start(now);
+        if (s.lfoRate > 0) {
+            const lfo = audioCtx.createOscillator();
+            const lfoGain = audioCtx.createGain();
+            lfo.type = 'sine';
+            lfo.frequency.setValueAtTime(s.lfoRate, now);
+            lfoGain.gain.setValueAtTime(s.lfoDepth, now);
+            lfo.connect(lfoGain).connect(osc.frequency);
+            lfo.start(now);
+            lfo.stop(now + s.dur);
+        }
+
+        osc.connect(filter).connect(gain).connect(audioCtx.destination);
         osc.start(now);
-        osc.stop(now + 0.8);
-        lfo.stop(now + 0.8);
+        osc.stop(now + s.dur);
     }
 
     function speakLetter(char) {
@@ -458,7 +478,7 @@
     // --- Element Creation per Mode ---
 
     function createShapeElement() {
-        const types = ['circle', 'rounded-square', 'star', 'heart', 'diamond'];
+        const types = ['circle', 'rounded-square', 'star', 'heart', 'diamond', 'triangle', 'hexagon', 'crescent'];
         const type = types[Math.floor(Math.random() * types.length)];
         const color = COLORS[Math.floor(Math.random() * COLORS.length)];
         const size = CONFIG.minSize + Math.random() * (CONFIG.maxSize - CONFIG.minSize);
@@ -470,6 +490,7 @@
             type,
             x, y, size, color,
             rotation: Math.random() * Math.PI * 2,
+            scale: 0.3,  // start small for bounce-in
             createdAt: Date.now(),
             opacity: 0,
         });
@@ -488,9 +509,27 @@
             x, y, size, color,
             wobblePhase: Math.random() * Math.PI * 2,
             wobbleSpeed: 0.02 + Math.random() * 0.02,
+            shimmerPhase: Math.random() * Math.PI * 2,
             createdAt: Date.now(),
             opacity: 0,
         });
+
+        // 30% chance: spawn a smaller companion bubble
+        if (Math.random() < 0.3) {
+            const s2 = size * (0.3 + Math.random() * 0.3);
+            elements.push({
+                mode: 'bubbles',
+                x: x + (Math.random() - 0.5) * size,
+                y: y + size * 0.3,
+                size: s2,
+                color: COLORS[Math.floor(Math.random() * COLORS.length)],
+                wobblePhase: Math.random() * Math.PI * 2,
+                wobbleSpeed: 0.025 + Math.random() * 0.02,
+                shimmerPhase: Math.random() * Math.PI * 2,
+                createdAt: Date.now(),
+                opacity: 0,
+            });
+        }
 
         playPop();
     }
@@ -554,6 +593,7 @@
             mode: 'letters',
             char, x, y, size, color,
             rotation: (Math.random() - 0.5) * 0.3,
+            scale: 0.2,  // bounce-in from small
             createdAt: Date.now(),
             opacity: 0,
         });
@@ -577,6 +617,21 @@
             size: barWidth * 0.8,
             color: xylo.color,
             barIndex,
+            glowPhase: 0,
+            createdAt: Date.now(),
+            opacity: 0,
+        });
+
+        // Spawn floating music note symbol
+        const noteSymbols = ['♩', '♪', '♫', '♬', '🎵'];
+        elements.push({
+            mode: 'music-note',
+            symbol: noteSymbols[Math.floor(Math.random() * noteSymbols.length)],
+            x: x + (Math.random() - 0.5) * barWidth * 0.5,
+            y: canvas.height * 0.2,
+            size: 30 + Math.random() * 25,
+            color: xylo.color,
+            drift: { dx: (Math.random() - 0.5) * 0.8, dy: -0.6 - Math.random() * 0.4 },
             createdAt: Date.now(),
             opacity: 0,
         });
@@ -594,11 +649,13 @@
         elements.push({
             mode: 'animals',
             animal, x, y, size, color,
+            bounce: 0,         // bounce animation phase
+            wiggle: 0,         // idle wiggle phase
             createdAt: Date.now(),
             opacity: 0,
         });
 
-        playAnimalSound();
+        playAnimalVoice(animal);
     }
 
     function createElement() {
@@ -807,20 +864,84 @@
         ctx.fill();
     }
 
-    // Bubble drawing
+    function drawTriangle(x, y, size) {
+        const h = size / 2;
+        ctx.beginPath();
+        ctx.moveTo(x, y - h);
+        ctx.lineTo(x + h * 0.87, y + h * 0.5);
+        ctx.lineTo(x - h * 0.87, y + h * 0.5);
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    function drawHexagon(x, y, size) {
+        const r = size / 2;
+        ctx.beginPath();
+        for (let i = 0; i < 6; i++) {
+            const a = (i * Math.PI) / 3 - Math.PI / 6;
+            const px = x + Math.cos(a) * r;
+            const py = y + Math.sin(a) * r;
+            i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    function drawCrescent(x, y, size) {
+        const r = size / 2;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+        // Cut out inner circle to form crescent
+        ctx.save();
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.beginPath();
+        ctx.arc(x + r * 0.35, y - r * 0.1, r * 0.75, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    // Bubble drawing with iridescent shimmer
     function drawBubble(el) {
         ctx.save();
+        const r = el.size / 2;
         ctx.globalAlpha = el.opacity * 0.6;
-        ctx.fillStyle = el.color;
+
+        // Main bubble with rainbow gradient
+        const shimmer = el.shimmerPhase || 0;
+        const grad = ctx.createRadialGradient(
+            el.x - r * 0.3, el.y - r * 0.3, r * 0.1,
+            el.x, el.y, r
+        );
+        const hue1 = (shimmer * 60) % 360;
+        const hue2 = (hue1 + 60) % 360;
+        const hue3 = (hue1 + 180) % 360;
+        grad.addColorStop(0, `hsla(${hue1}, 70%, 85%, 0.8)`);
+        grad.addColorStop(0.5, `hsla(${hue2}, 60%, 80%, 0.5)`);
+        grad.addColorStop(1, `hsla(${hue3}, 50%, 75%, 0.3)`);
+        ctx.fillStyle = grad;
         ctx.beginPath();
-        ctx.arc(el.x, el.y, el.size / 2, 0, Math.PI * 2);
+        ctx.arc(el.x, el.y, r, 0, Math.PI * 2);
         ctx.fill();
+
+        // Thin outline
+        ctx.strokeStyle = `hsla(${hue1}, 40%, 70%, ${el.opacity * 0.4})`;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
         // Highlight
-        ctx.globalAlpha = el.opacity * 0.3;
+        ctx.globalAlpha = el.opacity * 0.5;
         ctx.fillStyle = '#ffffff';
         ctx.beginPath();
-        ctx.arc(el.x - el.size * 0.15, el.y - el.size * 0.15, el.size * 0.15, 0, Math.PI * 2);
+        ctx.arc(el.x - r * 0.25, el.y - r * 0.25, r * 0.18, 0, Math.PI * 2);
         ctx.fill();
+
+        // Small secondary highlight
+        ctx.globalAlpha = el.opacity * 0.3;
+        ctx.beginPath();
+        ctx.arc(el.x + r * 0.15, el.y + r * 0.2, r * 0.08, 0, Math.PI * 2);
+        ctx.fill();
+
         ctx.restore();
     }
 
@@ -1011,12 +1132,28 @@
         ctx.save();
         ctx.translate(el.x, el.y);
         ctx.rotate(el.rotation);
+        const s = el.scale || 1;
+        ctx.scale(s, s);
         ctx.globalAlpha = el.opacity;
-        ctx.fillStyle = el.color;
-        ctx.font = `bold ${el.size}px system-ui, -apple-system, sans-serif`;
+
+        const fontSize = el.size;
+        ctx.font = `bold ${fontSize}px system-ui, -apple-system, sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
+
+        // Drop shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.12)';
+        ctx.fillText(el.char, 3, 4);
+
+        // Main letter
+        ctx.fillStyle = el.color;
         ctx.fillText(el.char, 0, 0);
+
+        // Light inner highlight
+        ctx.globalAlpha = el.opacity * 0.3;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(el.char, -1, -2);
+
         ctx.restore();
     }
 
@@ -1028,6 +1165,15 @@
         const barHeight = canvas.height * 0.6;
         const x = el.x - barWidth / 2;
         const y = canvas.height * 0.2;
+
+        // Glow effect when freshly hit
+        const age = Date.now() - el.createdAt;
+        if (age < 500) {
+            const glowAlpha = el.opacity * (1 - age / 500) * 0.4;
+            ctx.shadowColor = el.color;
+            ctx.shadowBlur = 20 + (1 - age / 500) * 20;
+            ctx.globalAlpha = glowAlpha + el.opacity;
+        }
 
         // Bar background
         ctx.fillStyle = el.color;
@@ -1044,8 +1190,10 @@
         ctx.quadraticCurveTo(x, y, x + r, y);
         ctx.closePath();
         ctx.fill();
+        ctx.shadowBlur = 0;
 
         // Note label
+        ctx.globalAlpha = el.opacity;
         ctx.fillStyle = '#ffffff';
         ctx.font = `bold ${barWidth * 0.4}px system-ui`;
         ctx.textAlign = 'center';
@@ -1055,10 +1203,26 @@
         ctx.restore();
     }
 
+    // Floating music note drawing
+    function drawMusicNote(el) {
+        ctx.save();
+        ctx.translate(el.x, el.y);
+        ctx.globalAlpha = el.opacity;
+        ctx.fillStyle = el.color;
+        ctx.font = `${el.size}px system-ui`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(el.symbol, 0, 0);
+        ctx.restore();
+    }
+
     // Animal drawing (simple silhouettes)
     function drawAnimal(el) {
         ctx.save();
         ctx.translate(el.x, el.y);
+        // Bounce-in scale
+        const bounceScale = el.bounce !== undefined ? 0.5 + el.bounce * 0.5 : 1;
+        ctx.scale(bounceScale, bounceScale);
         ctx.globalAlpha = el.opacity;
         ctx.fillStyle = el.color;
         const s = el.size / 2;
@@ -1175,6 +1339,150 @@
                 ctx.ellipse(s * 0.2, s * 0.3, s * 0.08, s * 0.12, 0, 0, Math.PI * 2);
                 ctx.fill();
                 break;
+            case 'elephant':
+                // Big body
+                ctx.beginPath();
+                ctx.ellipse(0, s * 0.1, s * 0.5, s * 0.45, 0, 0, Math.PI * 2);
+                ctx.fill();
+                // Head
+                ctx.beginPath();
+                ctx.arc(s * 0.35, -s * 0.2, s * 0.3, 0, Math.PI * 2);
+                ctx.fill();
+                // Big ear
+                ctx.beginPath();
+                ctx.ellipse(s * 0.55, -s * 0.1, s * 0.2, s * 0.3, 0.2, 0, Math.PI * 2);
+                ctx.fill();
+                // Trunk
+                ctx.strokeStyle = el.color;
+                ctx.lineWidth = s * 0.12;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(s * 0.55, 0);
+                ctx.quadraticCurveTo(s * 0.8, s * 0.3, s * 0.65, s * 0.5);
+                ctx.stroke();
+                // Legs
+                ctx.fillStyle = el.color;
+                ctx.fillRect(-s * 0.3, s * 0.35, s * 0.15, s * 0.3);
+                ctx.fillRect(-s * 0.05, s * 0.35, s * 0.15, s * 0.3);
+                break;
+            case 'frog':
+                // Body (round)
+                ctx.beginPath();
+                ctx.ellipse(0, 0, s * 0.4, s * 0.35, 0, 0, Math.PI * 2);
+                ctx.fill();
+                // Big eyes (bulging on top)
+                ctx.beginPath();
+                ctx.arc(-s * 0.2, -s * 0.35, s * 0.15, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(s * 0.2, -s * 0.35, s * 0.15, 0, Math.PI * 2);
+                ctx.fill();
+                // Eye whites
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(-s * 0.2, -s * 0.37, s * 0.08, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(s * 0.2, -s * 0.37, s * 0.08, 0, Math.PI * 2);
+                ctx.fill();
+                // Pupils
+                ctx.fillStyle = '#222';
+                ctx.beginPath();
+                ctx.arc(-s * 0.2, -s * 0.36, s * 0.04, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(s * 0.2, -s * 0.36, s * 0.04, 0, Math.PI * 2);
+                ctx.fill();
+                // Smile
+                ctx.strokeStyle = '#555';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.arc(0, -s * 0.05, s * 0.2, 0.2, Math.PI - 0.2);
+                ctx.stroke();
+                break;
+            case 'dog':
+                // Body
+                ctx.beginPath();
+                ctx.ellipse(0, 0, s * 0.45, s * 0.35, 0, 0, Math.PI * 2);
+                ctx.fill();
+                // Head
+                ctx.beginPath();
+                ctx.arc(s * 0.3, -s * 0.3, s * 0.25, 0, Math.PI * 2);
+                ctx.fill();
+                // Floppy ears
+                ctx.beginPath();
+                ctx.ellipse(s * 0.5, -s * 0.15, s * 0.1, s * 0.2, 0.3, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.ellipse(s * 0.15, -s * 0.15, s * 0.1, s * 0.2, -0.3, 0, Math.PI * 2);
+                ctx.fill();
+                // Snout
+                ctx.fillStyle = '#f4dda7';
+                ctx.beginPath();
+                ctx.ellipse(s * 0.42, -s * 0.25, s * 0.1, s * 0.08, 0, 0, Math.PI * 2);
+                ctx.fill();
+                // Nose
+                ctx.fillStyle = '#333';
+                ctx.beginPath();
+                ctx.arc(s * 0.48, -s * 0.26, s * 0.04, 0, Math.PI * 2);
+                ctx.fill();
+                // Tail (wagging via wiggle)
+                ctx.strokeStyle = el.color;
+                ctx.lineWidth = s * 0.08;
+                ctx.lineCap = 'round';
+                const tailWag = Math.sin(el.wiggle || 0) * 0.3;
+                ctx.beginPath();
+                ctx.moveTo(-s * 0.4, -s * 0.1);
+                ctx.quadraticCurveTo(-s * 0.6, -s * 0.4 + tailWag * s, -s * 0.55, -s * 0.55);
+                ctx.stroke();
+                break;
+            case 'penguin':
+                // Body (oval, dark)
+                ctx.beginPath();
+                ctx.ellipse(0, 0, s * 0.3, s * 0.45, 0, 0, Math.PI * 2);
+                ctx.fill();
+                // White belly
+                ctx.fillStyle = '#f8f8ff';
+                ctx.beginPath();
+                ctx.ellipse(0, s * 0.05, s * 0.2, s * 0.32, 0, 0, Math.PI * 2);
+                ctx.fill();
+                // Head
+                ctx.fillStyle = el.color;
+                ctx.beginPath();
+                ctx.arc(0, -s * 0.45, s * 0.2, 0, Math.PI * 2);
+                ctx.fill();
+                // Eyes
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(-s * 0.08, -s * 0.47, s * 0.06, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(s * 0.08, -s * 0.47, s * 0.06, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#222';
+                ctx.beginPath();
+                ctx.arc(-s * 0.08, -s * 0.46, s * 0.03, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(s * 0.08, -s * 0.46, s * 0.03, 0, Math.PI * 2);
+                ctx.fill();
+                // Beak
+                ctx.fillStyle = '#f4a020';
+                ctx.beginPath();
+                ctx.moveTo(0, -s * 0.4);
+                ctx.lineTo(s * 0.06, -s * 0.33);
+                ctx.lineTo(-s * 0.06, -s * 0.33);
+                ctx.closePath();
+                ctx.fill();
+                // Flippers
+                ctx.fillStyle = el.color;
+                ctx.beginPath();
+                ctx.ellipse(-s * 0.3, -s * 0.05, s * 0.07, s * 0.2, 0.2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.ellipse(s * 0.3, -s * 0.05, s * 0.07, s * 0.2, -0.2, 0, Math.PI * 2);
+                ctx.fill();
+                break;
         }
         ctx.restore();
     }
@@ -1186,6 +1494,8 @@
                 ctx.save();
                 ctx.translate(el.x, el.y);
                 ctx.rotate(el.rotation);
+                const shapeScale = el.scale || 1;
+                ctx.scale(shapeScale, shapeScale);
                 ctx.globalAlpha = el.opacity;
                 ctx.fillStyle = el.color;
                 switch (el.type) {
@@ -1194,6 +1504,9 @@
                     case 'star': drawStar(0, 0, el.size); break;
                     case 'heart': drawHeart(0, 0, el.size); break;
                     case 'diamond': drawDiamond(0, 0, el.size); break;
+                    case 'triangle': drawTriangle(0, 0, el.size); break;
+                    case 'hexagon': drawHexagon(0, 0, el.size); break;
+                    case 'crescent': drawCrescent(0, 0, el.size); break;
                 }
                 ctx.restore();
                 break;
@@ -1223,6 +1536,9 @@
                 break;
             case 'music':
                 drawMusicBar(el);
+                break;
+            case 'music-note':
+                drawMusicNote(el);
                 break;
             case 'animals':
                 drawAnimal(el);
@@ -1311,11 +1627,18 @@
             case 'shapes':
                 el.y -= drift;
                 el.rotation += 0.002;
+                // Bounce-in: spring from 0.3 to ~1.0 with overshoot
+                if (el.scale !== undefined && el.scale < 1) {
+                    el.scale += (1 - el.scale) * 0.08;
+                    if (el.scale > 0.98) el.scale = 1;
+                }
                 break;
             case 'bubbles':
                 el.y -= drift * 1.5;
                 el.wobblePhase += el.wobbleSpeed;
                 el.x += Math.sin(el.wobblePhase) * 0.5;
+                // Shimmer rotation for rainbow
+                if (el.shimmerPhase !== undefined) el.shimmerPhase += 0.02;
                 break;
             case 'nature':
                 if (el.drift) {
@@ -1332,11 +1655,29 @@
                 break;
             case 'letters':
                 el.y -= drift * 0.5;
+                // Bounce-in scale
+                if (el.scale !== undefined && el.scale < 1) {
+                    el.scale += (1 - el.scale) * 0.06;
+                    if (el.scale > 0.97) el.scale = 1;
+                }
                 break;
             case 'music':
                 break;
+            case 'music-note':
+                // Float upward
+                if (el.drift) {
+                    el.x += el.drift.dx;
+                    el.y += el.drift.dy;
+                }
+                break;
             case 'animals':
                 el.y -= drift * 0.3;
+                // Gentle wiggle (used for dog tail, general bounce)
+                if (el.wiggle !== undefined) el.wiggle += 0.1;
+                // Small bounce on entry
+                if (el.bounce !== undefined && el.bounce < 1) {
+                    el.bounce += 0.05;
+                }
                 break;
             case 'flashcard':
                 // Flashcards stay mostly still, very gentle float
