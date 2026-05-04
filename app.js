@@ -83,6 +83,7 @@
     let thirdLangRotation = 0;
     let started = false;
     let activeConfig = null; // live reference to admin config
+    let flashcardLocked = false; // lock input during flashcard TTS
 
     // --- Audio ---
     function initAudio() {
@@ -376,6 +377,9 @@
     }
 
     function createElement() {
+        // In flashcard modes, lock input until TTS finishes
+        if (flashcardLocked) return;
+
         const maxEl = activeConfig ? activeConfig.maxElements : CONFIG.maxElements;
         if (elements.length >= maxEl) {
             elements.shift();
@@ -406,18 +410,34 @@
         const x = canvas.width * 0.5 + (Math.random() - 0.5) * canvas.width * 0.3;
         const y = canvas.height * 0.4;
 
+        // Calculate how long TTS will take
+        const delay = activeConfig ? activeConfig.ttsDelayBetween : 1200;
+        const hasThirdLang = activeConfig ?
+            Object.values(activeConfig.enabledLanguages).some(v => v) : true;
+        // Total TTS time: last utterance start + estimated speech duration
+        const ttsDuration = hasThirdLang ? delay * 2 + 1500 : delay + 1500;
+        const flashcardDuration = Math.max(ttsDuration + 500, 5000); // at least 5s
+
+        // Clear previous flashcard elements (show one at a time)
+        elements = elements.filter(el => el.mode !== 'flashcard');
+
         elements.push({
             mode: 'flashcard',
             categoryKey,
             item,
             x, y, size,
             createdAt: Date.now(),
+            customDuration: flashcardDuration,
             opacity: 0,
         });
 
+        // Lock input during TTS
+        flashcardLocked = true;
+        setTimeout(() => { flashcardLocked = false; }, flashcardDuration - 500);
+
         // Play a gentle bell + TTS
         playBellTone(PENTATONIC[Math.floor(Math.random() * PENTATONIC.length)], 0.08);
-        if (activeConfig && activeConfig.ttsEnabled !== false) {
+        if (!activeConfig || activeConfig.ttsEnabled !== false) {
             speakFlashcard(item);
         }
     }
@@ -465,8 +485,8 @@
 
     // --- Drawing Functions ---
 
-    function getOpacity(el, now) {
-        const duration = activeConfig ? activeConfig.elementDuration : CONFIG.elementDuration;
+    function getOpacity(el, now, customDuration) {
+        const duration = customDuration || (activeConfig ? activeConfig.elementDuration : CONFIG.elementDuration);
         const fadeIn = activeConfig ? activeConfig.fadeInTime : CONFIG.fadeInTime;
         const fadeOut = activeConfig ? activeConfig.fadeOutTime : CONFIG.fadeOutTime;
         const age = now - el.createdAt;
@@ -843,11 +863,12 @@
 
     // --- Update ---
     function updateElement(el, now) {
-        const duration = activeConfig ? activeConfig.elementDuration : CONFIG.elementDuration;
+        const baseDuration = activeConfig ? activeConfig.elementDuration : CONFIG.elementDuration;
+        const duration = el.customDuration || baseDuration;
         const age = now - el.createdAt;
         if (age > duration) return false;
 
-        el.opacity = getOpacity(el, now);
+        el.opacity = getOpacity(el, now, duration);
         const drift = activeConfig ? activeConfig.driftSpeed : CONFIG.driftSpeed;
 
         switch (el.mode) {
@@ -987,6 +1008,8 @@
     // --- Event Handlers ---
     function handleKeyDown(e) {
         if (e.key === 'Escape') return;
+        // Don't trigger app actions when admin panel is open
+        if (ADMIN.isVisible) return;
 
         // Admin mode switch: Ctrl+Shift+1 through 9 (up to 13 modes)
         if (e.ctrlKey && e.shiftKey) {
@@ -996,7 +1019,6 @@
                 switchMode(num - 1);
                 return;
             }
-            // Ctrl+Shift+0 for mode 10, etc. — use N/P for next/prev
             if (e.key === 'N' || e.key === 'n') {
                 e.preventDefault();
                 nextMode();
@@ -1037,8 +1059,9 @@
     }
 
     function blockDangerousKeys(e) {
+        // Don't block keys when admin panel is open (it handles its own keys)
+        if (ADMIN.isVisible) return;
         if (e.key === 'Escape') return;
-        // Allow admin combos
         if (e.ctrlKey && e.shiftKey) return;
         if (e.altKey || e.ctrlKey || e.metaKey) {
             e.preventDefault();

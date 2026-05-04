@@ -1,5 +1,6 @@
-// Admin Panel - overlay configuration UI
+// Admin Panel - Game-style keyboard-navigable settings overlay
 // Activated by long-pressing any Ctrl key for 2 seconds
+// Navigation: ↑↓ move, ←→ adjust values, Enter/Space toggle, Esc close
 // All settings persist to localStorage
 
 const ADMIN = (function () {
@@ -7,56 +8,33 @@ const ADMIN = (function () {
 
     const STORAGE_KEY = 'babysmash_config';
 
-    // Default configuration (matches CONFIG in app.js)
+    // Default configuration
     const DEFAULTS = {
-        // Timing
         elementDuration: 3000,
         fadeInTime: 400,
         fadeOutTime: 1200,
         cooldown: 100,
-        autoRotateMin: 3,   // minutes (UI-friendly)
+        autoRotateMin: 3,
         autoRotateMax: 7,
-
-        // Visuals
         maxElements: 8,
         minSize: 80,
         maxSize: 200,
         driftSpeed: 0.3,
         backgroundColor: '#faf8f5',
-
-        // Audio
-        masterVolume: 80,   // percentage
+        masterVolume: 80,
         ttsRate: 0.8,
         ttsPitch: 1.1,
         soundEnabled: true,
         ttsEnabled: true,
-
-        // Modes (all enabled by default)
         enabledModes: {
-            shapes: true,
-            bubbles: true,
-            nature: true,
-            letters: true,
-            music: true,
-            animals: true,
-            // Flashcard categories
-            colors: true,
-            animals_fc: true,
-            fruits: true,
-            vehicles: true,
-            nature_words: true,
-            numbers: true,
-            body_parts: true,
+            shapes: true, bubbles: true, nature: true,
+            letters: true, music: true, animals: true,
+            colors: true, animals_fc: true, fruits: true,
+            vehicles: true, nature_words: true, numbers: true, body_parts: true,
         },
-
-        // Languages
-        enabledLanguages: {
-            'ja-JP': true,
-            'hi-IN': true,
-            'es-ES': true,
-        },
-        ttsDelayBetween: 1200, // ms between language utterances
-        autoRotateEnabled: true, // whether to auto-rotate at all
+        enabledLanguages: { 'ja-JP': true, 'hi-IN': true, 'es-ES': true },
+        ttsDelayBetween: 1200,
+        autoRotateEnabled: true,
     };
 
     let config = null;
@@ -64,14 +42,15 @@ const ADMIN = (function () {
     let panelEl = null;
     let ctrlPressStart = 0;
     let ctrlCheckInterval = null;
+    let focusIndex = 0;
+    let menuItems = []; // flat list of interactive items
 
     // --- Persistence ---
     function load() {
         try {
             const saved = localStorage.getItem(STORAGE_KEY);
             if (saved) {
-                const parsed = JSON.parse(saved);
-                config = deepMerge(structuredClone(DEFAULTS), parsed);
+                config = deepMerge(structuredClone(DEFAULTS), JSON.parse(saved));
             } else {
                 config = structuredClone(DEFAULTS);
             }
@@ -82,18 +61,14 @@ const ADMIN = (function () {
     }
 
     function save() {
-        try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
-        } catch (e) {
-            console.warn('Failed to save config:', e);
-        }
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(config)); } catch (e) {}
     }
 
     function reset() {
         config = structuredClone(DEFAULTS);
         save();
-        renderPanel();
         applyConfig();
+        if (panelVisible) { buildMenu(); renderPanel(); }
     }
 
     function deepMerge(target, source) {
@@ -106,6 +81,87 @@ const ADMIN = (function () {
             }
         }
         return target;
+    }
+
+    // --- Menu Item Definitions ---
+    // Each item: { type, label, key?, get, set, min?, max?, step?, options?, group? }
+    function buildMenu() {
+        const currentModeName = typeof getCurrentModeName === 'function' ? getCurrentModeName() : '';
+        menuItems = [
+            // -- Now Playing --
+            { type: 'header', label: '🎮 NOW PLAYING' },
+            { type: 'action', label: '◀ Previous Mode', action: () => { if (onPrevMode) onPrevMode(); buildMenu(); } },
+            { type: 'action', label: '▶ Next Mode', action: () => { if (onNextMode) onNextMode(); buildMenu(); } },
+            { type: 'toggle', label: 'Auto-Rotate', get: () => config.autoRotateEnabled, set: (v) => { config.autoRotateEnabled = v; save(); applyConfig(); } },
+
+            { type: 'header', label: '🎭 SWITCH MODE' },
+            // Interactive modes
+            ...buildModeGroup('Interactive', [
+                ['shapes', '⬡ Shapes'], ['bubbles', '🫧 Bubbles'], ['nature', '🍃 Nature'],
+                ['letters', '🔤 Letters'], ['music', '🎵 Music'], ['animals', '🐾 Animals'],
+            ], currentModeName),
+            { type: 'header', label: '🃏 FLASHCARD MODES' },
+            ...buildModeGroup('Flashcard', [
+                ['colors', '🎨 Colors'], ['animals_fc', '🐘 Animals'], ['fruits', '🍎 Fruits'],
+                ['vehicles', '🚗 Vehicles'], ['nature_words', '🌈 Nature'], ['numbers', '🔢 Numbers'],
+                ['body_parts', '🖐 Body Parts'],
+            ], currentModeName),
+
+            // -- Timing --
+            { type: 'header', label: '⏱ TIMING' },
+            { type: 'slider', label: 'Element Duration', key: 'elementDuration', min: 1000, max: 8000, step: 200, unit: 'ms' },
+            { type: 'slider', label: 'Fade In', key: 'fadeInTime', min: 100, max: 2000, step: 100, unit: 'ms' },
+            { type: 'slider', label: 'Fade Out', key: 'fadeOutTime', min: 200, max: 4000, step: 200, unit: 'ms' },
+            { type: 'slider', label: 'Key Cooldown', key: 'cooldown', min: 50, max: 500, step: 25, unit: 'ms' },
+            { type: 'slider', label: 'Auto-Rotate Min', key: 'autoRotateMin', min: 1, max: 15, step: 1, unit: 'min' },
+            { type: 'slider', label: 'Auto-Rotate Max', key: 'autoRotateMax', min: 2, max: 20, step: 1, unit: 'min' },
+
+            // -- Visuals --
+            { type: 'header', label: '🎨 VISUALS' },
+            { type: 'slider', label: 'Max Elements', key: 'maxElements', min: 1, max: 20, step: 1, unit: '' },
+            { type: 'slider', label: 'Min Size', key: 'minSize', min: 30, max: 150, step: 10, unit: 'px' },
+            { type: 'slider', label: 'Max Size', key: 'maxSize', min: 100, max: 400, step: 20, unit: 'px' },
+            { type: 'slider', label: 'Drift Speed', key: 'driftSpeed', min: 0, max: 2, step: 0.1, unit: '' },
+
+            // -- Audio --
+            { type: 'header', label: '🔊 AUDIO' },
+            { type: 'slider', label: 'Master Volume', key: 'masterVolume', min: 0, max: 100, step: 5, unit: '%' },
+            { type: 'slider', label: 'TTS Speed', key: 'ttsRate', min: 0.3, max: 1.5, step: 0.1, unit: '×' },
+            { type: 'slider', label: 'TTS Pitch', key: 'ttsPitch', min: 0.5, max: 2.0, step: 0.1, unit: '×' },
+            { type: 'toggle', label: 'Sound Effects', get: () => config.soundEnabled, set: (v) => { config.soundEnabled = v; save(); applyConfig(); } },
+            { type: 'toggle', label: 'Text-to-Speech', get: () => config.ttsEnabled, set: (v) => { config.ttsEnabled = v; save(); applyConfig(); } },
+
+            // -- Languages --
+            { type: 'header', label: '🌐 LANGUAGES' },
+            { type: 'toggle', label: '🇯🇵 Japanese', get: () => config.enabledLanguages['ja-JP'], set: (v) => { config.enabledLanguages['ja-JP'] = v; save(); applyConfig(); } },
+            { type: 'toggle', label: '🇮🇳 Hindi', get: () => config.enabledLanguages['hi-IN'], set: (v) => { config.enabledLanguages['hi-IN'] = v; save(); applyConfig(); } },
+            { type: 'toggle', label: '🇪🇸 Spanish', get: () => config.enabledLanguages['es-ES'], set: (v) => { config.enabledLanguages['es-ES'] = v; save(); applyConfig(); } },
+            { type: 'slider', label: 'Delay Between', key: 'ttsDelayBetween', min: 500, max: 3000, step: 100, unit: 'ms' },
+
+            // -- Actions --
+            { type: 'header', label: '⚡ ACTIONS' },
+            { type: 'action', label: '↺ Reset All to Defaults', action: reset },
+            { type: 'action', label: '✕ Close Panel', action: () => hidePanel() },
+        ];
+
+        // Ensure focusIndex is on an interactive item
+        if (focusIndex >= menuItems.length) focusIndex = 0;
+        while (menuItems[focusIndex] && menuItems[focusIndex].type === 'header') {
+            focusIndex++;
+            if (focusIndex >= menuItems.length) focusIndex = 0;
+        }
+    }
+
+    function buildModeGroup(groupName, modes, currentModeName) {
+        return modes.map(([key, label]) => ({
+            type: 'mode',
+            label: label,
+            modeKey: key,
+            isActive: () => (typeof getCurrentModeName === 'function' && getCurrentModeName() === key),
+            isEnabled: () => config.enabledModes[key],
+            activate: () => { if (onSwitchMode) onSwitchMode(key); buildMenu(); },
+            toggleEnabled: () => { config.enabledModes[key] = !config.enabledModes[key]; save(); applyConfig(); },
+        }));
     }
 
     // --- Long-press Detection ---
@@ -134,18 +190,96 @@ const ADMIN = (function () {
         }, true);
     }
 
-    // --- Panel UI ---
-    function togglePanel() {
-        panelVisible = !panelVisible;
-        if (panelVisible) {
-            showPanel();
-        } else {
-            hidePanel();
+    // --- Panel Keyboard Handler ---
+    function handlePanelKey(e) {
+        if (!panelVisible) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        const item = menuItems[focusIndex];
+        if (!item) return;
+
+        switch (e.key) {
+            case 'ArrowUp':
+                moveFocus(-1);
+                break;
+            case 'ArrowDown':
+                moveFocus(1);
+                break;
+            case 'ArrowLeft':
+                adjustItem(item, -1);
+                break;
+            case 'ArrowRight':
+                adjustItem(item, 1);
+                break;
+            case 'Enter':
+            case ' ':
+                activateItem(item);
+                break;
+            case 'Escape':
+                hidePanel();
+                break;
+        }
+        renderPanel();
+    }
+
+    function moveFocus(dir) {
+        let next = focusIndex + dir;
+        // Skip headers
+        while (next >= 0 && next < menuItems.length && menuItems[next].type === 'header') {
+            next += dir;
+        }
+        if (next >= 0 && next < menuItems.length) {
+            focusIndex = next;
         }
     }
 
+    function adjustItem(item, dir) {
+        if (item.type === 'slider') {
+            const step = item.step || 1;
+            let val = config[item.key] + step * dir;
+            val = Math.round(val * 1000) / 1000; // avoid float drift
+            val = Math.max(item.min, Math.min(item.max, val));
+            config[item.key] = val;
+            save();
+            applyConfig();
+        } else if (item.type === 'mode') {
+            // Left/Right toggle enabled status
+            item.toggleEnabled();
+            buildMenu();
+        }
+    }
+
+    function activateItem(item) {
+        switch (item.type) {
+            case 'toggle':
+                item.set(!item.get());
+                break;
+            case 'action':
+                item.action();
+                break;
+            case 'mode':
+                // Enter activates (switches to) the mode
+                item.activate();
+                break;
+            case 'slider':
+                // Enter on slider does nothing special (use arrows)
+                break;
+        }
+    }
+
+    // --- Panel UI ---
+    function togglePanel() {
+        panelVisible = !panelVisible;
+        if (panelVisible) showPanel();
+        else hidePanel();
+    }
+
     function showPanel() {
+        panelVisible = true;
         if (!panelEl) createPanel();
+        buildMenu();
         renderPanel();
         panelEl.style.display = 'flex';
         panelEl.style.opacity = '0';
@@ -153,9 +287,10 @@ const ADMIN = (function () {
     }
 
     function hidePanel() {
+        panelVisible = false;
         if (panelEl) {
             panelEl.style.opacity = '0';
-            setTimeout(() => { panelEl.style.display = 'none'; }, 300);
+            setTimeout(() => { if (panelEl) panelEl.style.display = 'none'; }, 300);
         }
     }
 
@@ -165,353 +300,193 @@ const ADMIN = (function () {
         panelEl.innerHTML = '<div class="admin-inner"></div>';
         document.body.appendChild(panelEl);
 
+        // Keyboard handler (capture phase, only when panel visible)
+        window.addEventListener('keydown', (e) => {
+            if (panelVisible) handlePanelKey(e);
+        }, true);
+
         const style = document.createElement('style');
         style.textContent = `
             #admin-panel {
                 position: fixed;
                 top: 0; left: 0; width: 100vw; height: 100vh;
-                background: rgba(0,0,0,0.7);
+                background: rgba(0,0,0,0.8);
                 display: none;
                 align-items: center;
                 justify-content: center;
                 z-index: 9999;
                 transition: opacity 0.3s ease;
                 cursor: default;
-                font-family: system-ui, -apple-system, sans-serif;
+                font-family: 'Consolas', 'SF Mono', monospace;
             }
             #admin-panel .admin-inner {
-                background: #1a1a2e;
-                color: #e0e0e0;
-                border-radius: 16px;
-                padding: 32px;
+                background: #0d0d1a;
+                color: #c8d0d8;
+                border: 1px solid #2a2a4a;
+                border-radius: 12px;
+                padding: 24px 32px;
                 width: 90vw;
-                max-width: 700px;
+                max-width: 560px;
                 max-height: 85vh;
                 overflow-y: auto;
-                box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+                box-shadow: 0 0 40px rgba(100,150,255,0.1);
             }
-            #admin-panel h2 {
-                margin: 0 0 20px 0;
-                font-size: 1.4rem;
-                color: #a7d8f4;
-                font-weight: 400;
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-            }
-            #admin-panel h3 {
-                margin: 20px 0 10px 0;
-                font-size: 1rem;
-                color: #b8e6c8;
-                font-weight: 500;
-                border-bottom: 1px solid #333;
-                padding-bottom: 6px;
-            }
-            #admin-panel .field {
-                display: flex;
-                align-items: center;
-                margin: 8px 0;
-                gap: 12px;
-            }
-            #admin-panel .field label {
-                flex: 0 0 160px;
-                font-size: 0.85rem;
-                color: #c0c0c0;
-            }
-            #admin-panel .field input[type="range"] {
-                flex: 1;
-                accent-color: #a7d8f4;
-            }
-            #admin-panel .field input[type="color"] {
-                width: 40px; height: 30px;
-                border: none; border-radius: 4px;
-                cursor: pointer;
-            }
-            #admin-panel .field .value {
-                flex: 0 0 50px;
-                text-align: right;
-                font-size: 0.8rem;
-                color: #888;
-                font-family: monospace;
-            }
-            #admin-panel .field input[type="checkbox"] {
-                width: 18px; height: 18px;
-                accent-color: #b8e6c8;
-            }
-            #admin-panel .toggle-row {
-                display: flex;
-                align-items: center;
-                margin: 4px 0;
-                gap: 8px;
-            }
-            #admin-panel .toggle-row label {
-                font-size: 0.85rem;
-                color: #c0c0c0;
-                cursor: pointer;
-            }
-            #admin-panel .modes-grid {
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 4px 20px;
-            }
-            #admin-panel .btn-row {
-                display: flex;
-                gap: 12px;
-                margin-top: 20px;
-                justify-content: flex-end;
-            }
-            #admin-panel button {
-                padding: 8px 20px;
-                border: none;
-                border-radius: 8px;
-                font-size: 0.9rem;
-                cursor: pointer;
-                transition: transform 0.1s;
-            }
-            #admin-panel button:active { transform: scale(0.95); }
-            #admin-panel .btn-close {
-                background: #a7d8f4;
-                color: #1a1a2e;
-            }
-            #admin-panel .btn-reset {
-                background: #444;
-                color: #ccc;
-            }
-            #admin-panel .btn-close:hover { background: #8ec8f0; }
-            #admin-panel .btn-reset:hover { background: #555; }
-            #admin-panel .mode-switcher {
-                display: grid;
-                grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-                gap: 6px;
-                margin: 10px 0;
-            }
-            #admin-panel .mode-btn {
-                padding: 8px 10px;
-                border: 2px solid #333;
-                border-radius: 8px;
-                background: #252540;
-                color: #c0c0c0;
-                font-size: 0.78rem;
-                cursor: pointer;
+            #admin-panel .panel-title {
                 text-align: center;
-                transition: all 0.15s;
+                color: #6a8aaa;
+                font-size: 0.75rem;
+                margin-bottom: 12px;
+                letter-spacing: 1px;
             }
-            #admin-panel .mode-btn:hover { border-color: #a7d8f4; color: #fff; }
-            #admin-panel .mode-btn.active {
-                border-color: #b8e6c8;
-                background: #2a3a2a;
-                color: #b8e6c8;
-                font-weight: 600;
-            }
-            #admin-panel .mode-btn.disabled {
-                opacity: 0.35;
-                pointer-events: none;
-            }
-            #admin-panel .nav-row {
+            #admin-panel .menu-item {
                 display: flex;
-                gap: 8px;
                 align-items: center;
-                margin: 10px 0;
-            }
-            #admin-panel .nav-btn {
-                padding: 6px 16px;
-                border: 1px solid #555;
+                padding: 6px 12px;
+                margin: 2px 0;
                 border-radius: 6px;
-                background: #2a2a3e;
-                color: #ddd;
-                cursor: pointer;
                 font-size: 0.85rem;
+                transition: background 0.1s;
+                min-height: 28px;
             }
-            #admin-panel .nav-btn:hover { background: #3a3a5e; border-color: #a7d8f4; }
-            #admin-panel .auto-rotate-status {
+            #admin-panel .menu-item.focused {
+                background: #1a2a4a;
+                outline: 1px solid #4a7aaa;
+            }
+            #admin-panel .menu-item .label {
+                flex: 1;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            #admin-panel .menu-item .val {
+                color: #8ab8e8;
                 font-size: 0.8rem;
-                color: #888;
-                margin-left: auto;
+                margin-left: 12px;
+                min-width: 60px;
+                text-align: right;
             }
+            #admin-panel .menu-header {
+                color: #5a7a5a;
+                font-size: 0.7rem;
+                font-weight: 700;
+                letter-spacing: 1.5px;
+                padding: 12px 12px 4px;
+                border-bottom: 1px solid #1a2a1a;
+                margin-top: 4px;
+            }
+            #admin-panel .bar-track {
+                width: 100px;
+                height: 6px;
+                background: #1a1a2e;
+                border-radius: 3px;
+                margin-left: 12px;
+                position: relative;
+                border: 1px solid #2a2a4a;
+            }
+            #admin-panel .bar-fill {
+                height: 100%;
+                border-radius: 3px;
+                background: #4a8aba;
+                transition: width 0.1s;
+            }
+            #admin-panel .focused .bar-fill {
+                background: #6ab0e8;
+            }
+            #admin-panel .toggle-indicator {
+                margin-left: 12px;
+                font-size: 0.8rem;
+            }
+            #admin-panel .toggle-indicator.on { color: #6ae87a; }
+            #admin-panel .toggle-indicator.off { color: #666; }
+            #admin-panel .mode-active {
+                color: #6ae87a;
+                margin-left: 8px;
+                font-size: 0.7rem;
+            }
+            #admin-panel .mode-disabled {
+                color: #555;
+                margin-left: 8px;
+                font-size: 0.7rem;
+            }
+            #admin-panel .mode-enabled {
+                color: #4a8aba;
+                margin-left: 8px;
+                font-size: 0.7rem;
+            }
+            #admin-panel .hint-bar {
+                display: flex;
+                justify-content: center;
+                gap: 16px;
+                margin-top: 16px;
+                padding-top: 12px;
+                border-top: 1px solid #1a2a3a;
+                font-size: 0.65rem;
+                color: #4a5a6a;
+            }
+            #admin-panel .hint-bar span { white-space: nowrap; }
         `;
         document.head.appendChild(style);
     }
 
     function renderPanel() {
+        if (!panelEl) return;
         const inner = panelEl.querySelector('.admin-inner');
-        const currentModeName = typeof getCurrentModeName === 'function' ? getCurrentModeName() : '';
-        inner.innerHTML = `
-            <h2>
-                <span>⚙️ Admin Panel</span>
-                <span style="font-size:0.7rem; color:#666;">Long-press Ctrl to close</span>
-            </h2>
+        let html = `<div class="panel-title">SETTINGS — ↑↓ Navigate · ←→ Adjust · Enter Select · Esc Close</div>`;
 
-            <h3>🎮 Now Playing</h3>
-            <div class="nav-row">
-                <button class="nav-btn" onclick="ADMIN._switchPrev()">◀ Prev</button>
-                <button class="nav-btn" onclick="ADMIN._switchNext()">Next ▶</button>
-                <span class="auto-rotate-status" id="auto-rotate-status">
-                    Auto: ${config.autoRotateEnabled ? '✅ ON' : '❌ OFF'}
-                </span>
-                <button class="nav-btn" onclick="ADMIN._toggleAutoRotate()" style="margin-left:8px;">
-                    ${config.autoRotateEnabled ? 'Pause Auto' : 'Resume Auto'}
-                </button>
-            </div>
-            <div class="mode-switcher" id="mode-switcher">
-                ${buildModeSwitcher(currentModeName)}
-            </div>
+        menuItems.forEach((item, i) => {
+            if (item.type === 'header') {
+                html += `<div class="menu-header">${item.label}</div>`;
+                return;
+            }
 
-            <h3>⏱ Timing</h3>
-            ${slider('elementDuration', 'Element Duration', 'ms', 1000, 8000, 100)}
-            ${slider('fadeInTime', 'Fade In', 'ms', 100, 2000, 50)}
-            ${slider('fadeOutTime', 'Fade Out', 'ms', 200, 4000, 100)}
-            ${slider('cooldown', 'Key Cooldown', 'ms', 50, 500, 10)}
-            ${slider('autoRotateMin', 'Auto-Rotate Min', 'min', 1, 15, 1)}
-            ${slider('autoRotateMax', 'Auto-Rotate Max', 'min', 2, 20, 1)}
+            const focused = i === focusIndex ? ' focused' : '';
+            html += `<div class="menu-item${focused}" data-idx="${i}">`;
 
-            <h3>🎨 Visuals</h3>
-            ${slider('maxElements', 'Max Elements', '', 1, 20, 1)}
-            ${slider('minSize', 'Min Size', 'px', 30, 150, 5)}
-            ${slider('maxSize', 'Max Size', 'px', 100, 400, 10)}
-            ${slider('driftSpeed', 'Drift Speed', 'px/f', 0, 2, 0.1)}
-            ${colorPicker('backgroundColor', 'Background Color')}
-
-            <h3>🔊 Audio</h3>
-            ${slider('masterVolume', 'Master Volume', '%', 0, 100, 5)}
-            ${slider('ttsRate', 'TTS Speed', '×', 0.3, 1.5, 0.1)}
-            ${slider('ttsPitch', 'TTS Pitch', '×', 0.5, 2.0, 0.1)}
-            ${toggle('soundEnabled', 'Sound Effects')}
-            ${toggle('ttsEnabled', 'Text-to-Speech')}
-
-            <h3>🎭 Modes (enable/disable in rotation)</h3>
-            <div class="modes-grid">
-                ${modeToggle('shapes', '⬡ Shapes')}
-                ${modeToggle('bubbles', '🫧 Bubbles')}
-                ${modeToggle('nature', '🍃 Nature')}
-                ${modeToggle('letters', '🔤 Letters')}
-                ${modeToggle('music', '🎵 Music')}
-                ${modeToggle('animals', '🐾 Animals')}
-                ${modeToggle('colors', '🎨 Colors FC')}
-                ${modeToggle('animals_fc', '🐘 Animals FC')}
-                ${modeToggle('fruits', '🍎 Fruits FC')}
-                ${modeToggle('vehicles', '🚗 Vehicles FC')}
-                ${modeToggle('nature_words', '🌈 Nature FC')}
-                ${modeToggle('numbers', '🔢 Numbers FC')}
-                ${modeToggle('body_parts', '🖐 Body Parts FC')}
-            </div>
-
-            <h3>🌐 Languages (Third-language rotation)</h3>
-            ${langToggle('ja-JP', '🇯🇵 Japanese')}
-            ${langToggle('hi-IN', '🇮🇳 Hindi')}
-            ${langToggle('es-ES', '🇪🇸 Spanish')}
-            ${slider('ttsDelayBetween', 'Delay Between', 'ms', 500, 3000, 100)}
-
-            <div class="btn-row">
-                <button class="btn-reset" onclick="ADMIN.reset()">Reset Defaults</button>
-                <button class="btn-close" onclick="ADMIN.togglePanel()">Close</button>
-            </div>
-        `;
-
-        // Bind all inputs
-        inner.querySelectorAll('input[data-key]').forEach(input => {
-            input.addEventListener('input', () => {
-                const key = input.dataset.key;
-                const type = input.type;
-
-                if (type === 'range' || type === 'number') {
-                    const val = parseFloat(input.value);
-                    config[key] = val;
-                    const valueSpan = input.parentElement.querySelector('.value');
-                    if (valueSpan) valueSpan.textContent = val + (input.dataset.unit || '');
-                } else if (type === 'color') {
-                    config[key] = input.value;
-                } else if (type === 'checkbox') {
-                    config[key] = input.checked;
+            switch (item.type) {
+                case 'slider': {
+                    const val = config[item.key];
+                    const pct = ((val - item.min) / (item.max - item.min)) * 100;
+                    const display = Number.isInteger(val) ? val : val.toFixed(1);
+                    html += `<span class="label">${item.label}</span>`;
+                    html += `<span class="val">${display}${item.unit}</span>`;
+                    html += `<div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>`;
+                    break;
                 }
-                save();
-                applyConfig();
-            });
+                case 'toggle': {
+                    const on = item.get();
+                    html += `<span class="label">${item.label}</span>`;
+                    html += `<span class="toggle-indicator ${on ? 'on' : 'off'}">${on ? '● ON' : '○ OFF'}</span>`;
+                    break;
+                }
+                case 'action': {
+                    html += `<span class="label">${item.label}</span>`;
+                    break;
+                }
+                case 'mode': {
+                    const active = item.isActive();
+                    const enabled = item.isEnabled();
+                    html += `<span class="label">${item.label}</span>`;
+                    if (active) html += `<span class="mode-active">▶ PLAYING</span>`;
+                    else if (enabled) html += `<span class="mode-enabled">✓</span>`;
+                    else html += `<span class="mode-disabled">—</span>`;
+                    break;
+                }
+            }
+            html += `</div>`;
         });
 
-        inner.querySelectorAll('input[data-mode]').forEach(input => {
-            input.addEventListener('change', () => {
-                config.enabledModes[input.dataset.mode] = input.checked;
-                save();
-                applyConfig();
-            });
-        });
-
-        inner.querySelectorAll('input[data-lang]').forEach(input => {
-            input.addEventListener('change', () => {
-                config.enabledLanguages[input.dataset.lang] = input.checked;
-                save();
-                applyConfig();
-            });
-        });
-
-        // Bind mode switcher buttons
-        inner.querySelectorAll('[data-switch-mode]').forEach(btn => {
-            btn.addEventListener('click', () => {
-                ADMIN._switchTo(btn.dataset.switchMode);
-            });
-        });
-    }
-
-    // --- HTML Helpers ---
-    const MODE_LABELS = {
-        shapes: '⬡ Shapes', bubbles: '🫧 Bubbles', nature: '🍃 Nature',
-        letters: '🔤 Letters', music: '🎵 Music', animals: '🐾 Animals',
-        colors: '🎨 Colors', animals_fc: '🐘 Animals', fruits: '🍎 Fruits',
-        vehicles: '🚗 Vehicles', nature_words: '🌈 Nature', numbers: '🔢 Numbers',
-        body_parts: '🖐 Body',
-    };
-
-    function buildModeSwitcher(currentModeName) {
-        const allModes = Object.keys(config.enabledModes);
-        return allModes.map(mode => {
-            const enabled = config.enabledModes[mode];
-            const active = mode === currentModeName;
-            const classes = ['mode-btn'];
-            if (active) classes.push('active');
-            if (!enabled) classes.push('disabled');
-            const label = MODE_LABELS[mode] || mode;
-            return `<button class="${classes.join(' ')}" data-switch-mode="${mode}" ${!enabled ? 'disabled' : ''}>${label}</button>`;
-        }).join('');
-    }
-
-    function slider(key, label, unit, min, max, step) {
-        const val = config[key];
-        return `<div class="field">
-            <label>${label}</label>
-            <input type="range" data-key="${key}" data-unit="${unit}" min="${min}" max="${max}" step="${step}" value="${val}">
-            <span class="value">${val}${unit}</span>
+        html += `<div class="hint-bar">
+            <span>↑↓ Move</span>
+            <span>←→ Adjust/Toggle Enable</span>
+            <span>Enter Switch/Toggle</span>
+            <span>Esc Close</span>
         </div>`;
-    }
 
-    function colorPicker(key, label) {
-        return `<div class="field">
-            <label>${label}</label>
-            <input type="color" data-key="${key}" value="${config[key]}">
-        </div>`;
-    }
+        inner.innerHTML = html;
 
-    function toggle(key, label) {
-        const checked = config[key] ? 'checked' : '';
-        return `<div class="toggle-row">
-            <input type="checkbox" data-key="${key}" id="toggle-${key}" ${checked}>
-            <label for="toggle-${key}">${label}</label>
-        </div>`;
-    }
-
-    function modeToggle(mode, label) {
-        const checked = config.enabledModes[mode] ? 'checked' : '';
-        return `<div class="toggle-row">
-            <input type="checkbox" data-mode="${mode}" id="mode-${mode}" ${checked}>
-            <label for="mode-${mode}">${label}</label>
-        </div>`;
-    }
-
-    function langToggle(code, label) {
-        const checked = config.enabledLanguages[code] ? 'checked' : '';
-        return `<div class="toggle-row">
-            <input type="checkbox" data-lang="${code}" id="lang-${code}" ${checked}>
-            <label for="lang-${code}">${label}</label>
-        </div>`;
+        // Scroll focused item into view
+        const focusedEl = inner.querySelector('.focused');
+        if (focusedEl) focusedEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
 
     // --- Config Application (callbacks set by app.js) ---
@@ -533,19 +508,12 @@ const ADMIN = (function () {
         togglePanel,
         initLongPress,
         get config() { return config; },
+        get isVisible() { return panelVisible; },
         set onConfigChange(fn) { onConfigChange = fn; },
         set onSwitchMode(fn) { onSwitchMode = fn; },
         set onNextMode(fn) { onNextMode = fn; },
         set onPrevMode(fn) { onPrevMode = fn; },
         set getCurrentModeName(fn) { getCurrentModeName = fn; },
-        _switchNext() { if (onNextMode) onNextMode(); if (panelVisible) renderPanel(); },
-        _switchPrev() { if (onPrevMode) onPrevMode(); if (panelVisible) renderPanel(); },
-        _switchTo(mode) { if (onSwitchMode) onSwitchMode(mode); if (panelVisible) renderPanel(); },
-        _toggleAutoRotate() {
-            config.autoRotateEnabled = !config.autoRotateEnabled;
-            save();
-            applyConfig();
-            if (panelVisible) renderPanel();
-        },
     };
 })();
+
