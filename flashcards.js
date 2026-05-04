@@ -613,6 +613,9 @@ const FLASHCARDS = (function () {
     function speakSequence(item) {
         if (!('speechSynthesis' in window)) return;
 
+        // Cancel any stuck/pending speech
+        speechSynthesis.cancel();
+
         const thirdLang = getNextThirdLang();
         const langKey = { 'ja-JP': 'ja', 'hi-IN': 'hi', 'es-ES': 'es' }[thirdLang.code];
 

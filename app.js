@@ -484,6 +484,8 @@
 
     function speakFlashcard(item) {
         if (!('speechSynthesis' in window)) return;
+        speechSynthesis.cancel(); // Clear stuck queue
+
         const rate = activeConfig ? activeConfig.ttsRate : 0.8;
         const pitch = activeConfig ? activeConfig.ttsPitch : 1.1;
         const vol = activeConfig ? activeConfig.masterVolume / 100 : 0.8;

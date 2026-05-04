@@ -1,2 +1,6 @@
 # Downloaded flashcard images (regenerate with: python download-images.py)
 images/
+
+# Generated TTS audio (regenerate with: python generate-audio.py)
+audio/
+audio_test/
