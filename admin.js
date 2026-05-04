@@ -292,6 +292,12 @@ const ADMIN = (function () {
             panelEl.style.opacity = '0';
             setTimeout(() => { if (panelEl) panelEl.style.display = 'none'; }, 300);
         }
+        // Re-enter fullscreen if browser exited it due to Esc
+        setTimeout(() => {
+            if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+                document.documentElement.requestFullscreen().catch(() => {});
+            }
+        }, 100);
     }
 
     function createPanel() {
